@@ -11,13 +11,22 @@ const api = window.screenpals
 const displayId = Number(new URLSearchParams(location.search).get('display'))
 let init: OverlayInit | null = null
 let state: AppState | null = null
+let windowRects: { id: number; x: number; y: number; w: number; h: number }[] = []
 
 const stage = new Stage({
   resolve: (def, path) => assetUrl(def.id, path, def.updatedAt),
   onStatus: (s) => api.overlay.reportStatus(s),
   onDragEnd: (s) => api.overlay.reportStatus([s]),
-  onHoverChange: (h) => api.overlay.setInteractive(h)
+  onHoverChange: (h) => api.overlay.setInteractive(h),
+  onAdapt: (id, behaviour, x, y) => api.overlay.adapt(id, behaviour, x, y)
 })
+
+/** App windows in this overlay's canvas coordinates (global → window-local). */
+function applySurfaces(): void {
+  if (!init) return
+  const b = init.windowBounds
+  stage.setSurfaces(windowRects.map((r) => ({ ...r, x: r.x - b.x, y: r.y - b.y })))
+}
 
 function layout(): void {
   if (!init) return
@@ -25,6 +34,7 @@ function layout(): void {
   const wa = init.display.workArea
   // Characters live in the work area (below the menu bar, above the Dock).
   stage.setArea(wa.x - wb.x, wa.y - wb.y, wa.width, wa.height)
+  applySurfaces()
   apply()
 }
 
@@ -43,6 +53,10 @@ async function start(): Promise<void> {
     if (i.display.id !== displayId && !Number.isNaN(displayId)) return
     init = i
     layout()
+  })
+  api.overlay.onSurfaces((rects) => {
+    windowRects = rects
+    applySurfaces()
   })
   api.onState((s) => {
     state = s

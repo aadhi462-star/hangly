@@ -45,6 +45,18 @@ export function Settings(): ReactNode {
           onChange={(interactionEnabled) => set({ interactionEnabled })}
         />
         <Toggle label="Characters avoid each other" hint="Walkers head away from a neighbour instead of piling up." checked={s.avoidOverlap} onChange={(avoidOverlap) => set({ avoidOverlap })} />
+        <Toggle
+          label="Stand on app windows"
+          hint="Characters land on, walk along and jump off the tops of your windows, and ride along when you move them. ScreenPals reads only window positions and sizes, never titles or contents."
+          checked={s.standOnWindows}
+          onChange={(standOnWindows) => set({ standOnWindows })}
+        />
+        <Toggle
+          label="Adapt to where you drop them"
+          hint="Drop near the top edge to hang, against a side to climb, anywhere else to stand on what's below."
+          checked={s.adaptOnDrop}
+          onChange={(adaptOnDrop) => set({ adaptOnDrop })}
+        />
       </Section>
 
       <Section title="Display">

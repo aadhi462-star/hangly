@@ -27,6 +27,18 @@ export interface World {
   idleSounds: boolean
   avoidOverlap: boolean
   entities: Entity[]
+  /** Top edges characters can stand on: app windows, front to back, in work-area px. */
+  surfaces: Surface[]
+  /** Switch behaviour to suit the spot a character was dropped on. */
+  adapt: ((e: Entity, behaviour: Behaviour, x: number, y: number) => void) | null
+}
+
+export interface Surface {
+  id: number
+  x: number
+  y: number
+  w: number
+  h: number
 }
 
 interface LoadedSeq {
@@ -106,6 +118,12 @@ export class Entity {
   private jumpT = -1
   private hearts: { x: number; y: number; t: number }[] = []
   private dragging = false
+  private lastPointer = { x: 0, y: 0 }
+  /** Window the character is standing on, and that window's x last frame (to ride along). */
+  private standingOn: number | null = null
+  private standX = 0
+  /** Decided per walk: whether to step off a window's edge instead of turning back. */
+  private willStepOff = false
   private dragOff = { x: 0, y: 0 }
   private placedVersion = -1
   private placedBehaviour: Behaviour | null = null
@@ -193,8 +211,15 @@ export class Entity {
     switch (i.behaviour) {
       case 'walk':
         this.x = clamp(i.x, 0, w.w)
-        this.y = this.groundY(w)
-        this.setState('idle', 0.8)
+        this.standingOn = null
+        // Placed above the ground (dropped, or saved standing on a window): fall onto whatever is below.
+        if (i.y > 0 && i.y < this.groundY(w) - 4) {
+          this.y = i.y
+          this.setState('landing', 99)
+        } else {
+          this.y = this.groundY(w)
+          this.setState('idle', 0.8)
+        }
         break
       case 'hang':
         this.anchorX = clamp(i.x, 10, w.w - 10)
@@ -216,6 +241,7 @@ export class Entity {
       case 'stationary':
         this.x = clamp(i.x, 0, w.w)
         this.y = i.y > 0 ? clamp(i.y, 0, w.h) : w.h
+        this.standingOn = null
         this.setState('idle', this.idleDur(w))
         break
     }
@@ -256,7 +282,7 @@ export class Entity {
           case 'hang': this.updateHang(dt, w); break
           case 'fly': this.updateFly(dt, w); break
           case 'climb': this.updateClimb(dt, w); break
-          case 'stationary': this.updateStationary(w); break
+          case 'stationary': this.updateStationary(dt, w); break
         }
       } else if (i.behaviour === 'hang') {
         this.updatePendulum(dt, w, 0)
@@ -299,26 +325,91 @@ export class Entity {
     this.blinkT = Math.max(0, this.blinkT - dt)
   }
 
+  // ---------- standing on things ----------
+
+  /** Distance from the entity's origin down to its feet. */
+  private footOffset(): number {
+    return this.rig?.origin === 'center' ? this.rig.groundOffset * this.unit : 0
+  }
+
+  /** A window's top edge counts only where no window in front of it covers it. */
+  private topVisible(w: World, s: Surface, x: number): boolean {
+    for (const f of w.surfaces) {
+      if (f === s) return true
+      if (x >= f.x && x <= f.x + f.w && s.y - 2 >= f.y && s.y - 2 <= f.y + f.h) return false
+    }
+    return true
+  }
+
+  /** The nearest thing to land on below (x, y): a window top, or the screen's ground. */
+  private landingBelow(w: World, x: number, y: number): { y: number; surface: Surface | null } {
+    let best: { y: number; surface: Surface | null } = { y: this.groundY(w), surface: null }
+    const foot = this.footOffset()
+    for (const s of w.surfaces) {
+      const top = s.y - foot
+      if (top < y - 2 || top >= best.y) continue
+      if (x < s.x + 6 || x > s.x + s.w - 6) continue
+      if (s.y < this.size.h * 0.6) continue // no headroom, e.g. a maximised window under the menu bar
+      if (!this.topVisible(w, s, x)) continue
+      best = { y: top, surface: s }
+    }
+    return best
+  }
+
+  /** Keeps a standing character on whatever is under it. Returns true while it is falling. */
+  private gravity(dt: number, w: World): boolean {
+    if (this.state === 'landing') {
+      const target = this.landingBelow(w, this.x, this.y)
+      this.vy += GRAVITY * dt
+      this.y += this.vy * dt
+      if (this.y >= target.y) {
+        this.y = target.y
+        this.vy = 0
+        this.standingOn = target.surface?.id ?? null
+        this.standX = target.surface?.x ?? 0
+        this.setState('idle', 0.7)
+      }
+      return true
+    }
+    if (this.standingOn !== null) {
+      const s = w.surfaces.find((v) => v.id === this.standingOn)
+      if (!s || this.x < s.x || this.x > s.x + s.w || !this.topVisible(w, s, this.x)) {
+        // The window closed, moved away or got covered: fall to the next thing below.
+        this.standingOn = null
+        this.vy = 0
+        this.setState('landing', 99)
+        return true
+      }
+      this.x += s.x - this.standX // ride along when the window moves
+      this.standX = s.x
+      this.y = s.y - this.footOffset()
+      return false
+    }
+    const ground = this.groundY(w)
+    if (this.y < ground - 2) {
+      this.vy = 0
+      this.setState('landing', 99)
+      return true
+    }
+    this.y = ground
+    return false
+  }
+
   // ---------- walking ----------
 
   private updateWalk(dt: number, w: World): void {
     const mv = this.inst.movement
     const half = this.size.w / 2
-    const minX = w.w * mv.areaMin + half
-    const maxX = w.w * mv.areaMax - half
-    const ground = this.groundY(w)
+    let minX = w.w * mv.areaMin + half
+    let maxX = w.w * mv.areaMax - half
 
-    if (this.state === 'landing') {
-      this.vy += GRAVITY * dt
-      this.y += this.vy * dt
-      if (this.y >= ground) {
-        this.y = ground
-        this.vy = 0
-        this.setState('idle', 0.7)
-      }
-      return
+    if (this.gravity(dt, w)) return
+    // On a window: its top edge is the walkway, unless this walk ends by stepping off.
+    const ledge = this.standingOn !== null ? w.surfaces.find((v) => v.id === this.standingOn) : undefined
+    if (ledge && !this.willStepOff) {
+      minX = Math.max(minX, ledge.x + half * 0.5)
+      maxX = Math.min(maxX, ledge.x + ledge.w - half * 0.5)
     }
-    this.y = ground
 
     if (mv.followCursor && w.cursor && !mv.fixedPosition) {
       const dx = w.cursor.x - this.x
@@ -400,6 +491,7 @@ export class Entity {
         if (near) this.dir = near.x > this.x ? -1 : 1
       }
     }
+    this.willStepOff = this.standingOn !== null && Math.random() < 0.3
     this.setState(s, dur)
   }
 
@@ -590,7 +682,11 @@ export class Entity {
 
   // ---------- stationary ----------
 
-  private updateStationary(w: World): void {
+  private updateStationary(dt: number, w: World): void {
+    // Standing figures stand on something; hanging-style art and fixed characters stay put.
+    const standing = (this.rig?.origin ?? 'feet') !== 'hang' && !this.inst.movement.fixedPosition
+    if (standing && this.gravity(dt, w)) return
+    if (this.state === 'landing') this.setState('idle', 0.7)
     if (this.stateTime >= this.stateDur) {
       if (!this.inst.movement.autoMovement) this.setState('idle', 5)
       else this.nextGroundState(w, false)
@@ -620,6 +716,7 @@ export class Entity {
 
   dragTo(px: number, py: number, w: World): void {
     if (!this.dragging) return
+    this.lastPointer = { x: px, y: py }
     const x = px + this.dragOff.x
     const y = py + this.dragOff.y
     if (this.inst.behaviour === 'hang') {
@@ -640,12 +737,18 @@ export class Entity {
   endDrag(w: World): void {
     if (!this.dragging) return
     this.dragging = false
+    this.standingOn = null
+    if (this.adaptToDrop(w)) return
     switch (this.inst.behaviour) {
       case 'walk':
         this.vy = 0
         this.setState('landing', 99)
         break
       case 'hang':
+        // Re-tie the thread above where it was dropped, so it hangs right there.
+        this.anchorX = clamp(this.x, 10, w.w - 10)
+        this.theta = 0
+        this.omega = 0
         this.targetLen = this.len
         this.setState('hanging', this.idleDur(w))
         break
@@ -662,6 +765,26 @@ export class Entity {
         this.setState('idle', this.idleDur(w))
         break
     }
+  }
+
+  /**
+   * Dropped near the top edge, a character that can hang starts hanging; against
+   * a side edge, one that can climb starts climbing; pulled off a wall, a climber
+   * walks or stands. Returns true when a switch was requested.
+   */
+  private adaptToDrop(w: World): boolean {
+    if (!w.adapt) return false
+    const can = this.def.behaviours
+    const b = this.inst.behaviour
+    const p = this.lastPointer
+    const edge = 50
+    let next: Behaviour | null = null
+    if (p.y < edge && can.includes('hang') && b !== 'hang') next = 'hang'
+    else if ((p.x < edge || p.x > w.w - edge) && can.includes('climb') && b !== 'climb') next = 'climb'
+    else if (b === 'climb' && p.x > edge * 2.5 && p.x < w.w - edge * 2.5) next = can.includes('walk') ? 'walk' : can.includes('stationary') ? 'stationary' : null
+    if (!next) return false
+    w.adapt(this, next, next === 'climb' ? (p.x < w.w / 2 ? 0 : w.w) : this.x, next === 'hang' ? 0 : this.y)
+    return true
   }
 
   interact(w: World, kind: 'click' | 'pet' = 'click'): void {

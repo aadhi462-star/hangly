@@ -193,6 +193,10 @@ export interface Settings {
   profile: { scale: number; activity: number; speed: number; idle: number }
   activeProfileId: string
   avoidOverlap: boolean
+  /** Characters stand on, walk along and fall between the tops of app windows. */
+  standOnWindows: boolean
+  /** Dropping a character near the top makes it hang, near a side makes it climb. */
+  adaptOnDrop: boolean
   hiddenBuiltIns: string[]
 }
 

@@ -11,7 +11,8 @@
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "dist:mac": "electron-vite build && electron-builder --mac"
+    "build:native": "swiftc -O -target arm64-apple-macos12 native/window-surfaces.swift -o /tmp/ws-arm64 && swiftc -O -target x86_64-apple-macos12 native/window-surfaces.swift -o /tmp/ws-x64 && lipo -create /tmp/ws-arm64 /tmp/ws-x64 -output resources/window-surfaces",
+    "dist:mac": "npm run build:native && electron-vite build && electron-builder --mac"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
@@ -47,6 +48,12 @@
       "extendInfo": {
         "LSUIElement": false
       }
-    }
+    },
+    "extraResources": [
+      {
+        "from": "resources/window-surfaces",
+        "to": "window-surfaces"
+      }
+    ]
   }
 }

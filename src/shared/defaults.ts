@@ -113,6 +113,8 @@ export const DEFAULT_SETTINGS: Settings = {
   profile: { scale: 1, activity: 1, speed: 1, idle: 1 },
   activeProfileId: 'playful',
   avoidOverlap: true,
+  standOnWindows: true,
+  adaptOnDrop: true,
   hiddenBuiltIns: []
 }
 

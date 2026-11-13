@@ -55,6 +55,8 @@ const api: ScreenPalsApi = {
   overlay: {
     onInit: (cb) => on('overlay:init', cb),
     onCursor: (cb) => on('overlay:cursor', cb),
+    onSurfaces: (cb) => on('overlay:surfaces', cb),
+    adapt: (id, behaviour, x, y) => ipcRenderer.send('overlay:adapt', id, behaviour, x, y),
     setInteractive: (v) => ipcRenderer.send('overlay:interactive', v),
     reportStatus: (s) => ipcRenderer.send('overlay:status', s),
     ready: () => ipcRenderer.send('overlay:ready')

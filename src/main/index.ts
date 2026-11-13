@@ -18,6 +18,7 @@ import { loadPage } from './load-page'
 import { OverlayManager } from './overlay-manager'
 import { registerShortcuts } from './shortcut-manager'
 import { dataDir, mergeKnown, store } from './store'
+import { SurfaceWatcher } from './surface-watcher'
 import { TrayManager } from './tray-manager'
 
 if (!app.requestSingleInstanceLock()) app.quit()
@@ -25,6 +26,7 @@ if (!app.requestSingleInstanceLock()) app.quit()
 registerAssetScheme()
 
 const overlays = new OverlayManager()
+const surfaces = new SurfaceWatcher((rects) => overlays.broadcast('overlay:surfaces', rects))
 let control: BrowserWindow | null = null
 let quitting = false
 let shortcutErrors: Record<string, string> = {}
@@ -102,6 +104,15 @@ function updateSettings(patch: DeepPartial<Settings>): void {
   if (before.launchAtLogin !== after.launchAtLogin) app.setLoginItemSettings({ openAtLogin: after.launchAtLogin })
   if (before.theme !== after.theme) nativeTheme.themeSource = after.theme
   if (!after.interactionEnabled) overlays.releaseAll()
+  applySurfaces()
+}
+
+/** The window-rectangle helper runs only while it can matter. */
+function applySurfaces(): void {
+  const s = store.state.settings
+  const visible = !s.hiddenAll && !(s.focus.active && s.focus.hideCharacters)
+  if (s.standOnWindows && visible && store.state.instances.length > 0) surfaces.start()
+  else surfaces.stop()
 }
 
 function applyDock(): void {
@@ -415,11 +426,27 @@ function registerIpc(): void {
       }
     }, false)
   })
+  ipcMain.on('overlay:adapt', (e, id: unknown, behaviour: unknown, x: unknown, y: unknown) => {
+    if (!overlays.isOverlay(e.sender) || !store.state.settings.adaptOnDrop) return
+    const i = instance(str(id))
+    const def = i && findDef(i.characterId)
+    if (!i || !def || typeof behaviour !== 'string' || !def.behaviours.includes(behaviour as CharacterInstance['behaviour'])) return
+    if (typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)) return
+    store.mutate((s) => {
+      const t = s.instances.find((v) => v.instanceId === i.instanceId)
+      if (!t) return
+      t.behaviour = behaviour as CharacterInstance['behaviour']
+      t.x = x
+      t.y = y
+      t.positionVersion++
+    })
+  })
   ipcMain.on('overlay:ready', (e) => {
     if (!overlays.isOverlay(e.sender)) return
     // The overlay subscribes only after its renderer is ready, so (re)send everything now.
     overlays.initFor(e.sender)
     e.sender.send('state', store.state)
+    e.sender.send('overlay:surfaces', surfaces.rects)
   })
 }
 
@@ -444,6 +471,7 @@ void app.whenReady().then(() => {
   store.onChange((s) => {
     overlays.broadcast('state', s)
     overlays.applyVisibility()
+    applySurfaces()
     sendControl('state', s)
     tray.refresh()
   })
@@ -468,4 +496,7 @@ void app.whenReady().then(() => {
   openControl()
 })
 
-app.on('will-quit', () => globalShortcut.unregisterAll())
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll()
+  surfaces.stop()
+})

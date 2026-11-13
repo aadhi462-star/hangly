@@ -1,6 +1,6 @@
 import { Application, Container } from 'pixi.js'
 import type { CharacterDefinition, CharacterInstance, InstanceStatus, Settings } from '../../shared/types'
-import { Entity, type AssetResolver, type World } from './Entity'
+import { Entity, type AssetResolver, type Surface, type World } from './Entity'
 
 export interface StageOptions {
   resolve: AssetResolver
@@ -10,6 +10,8 @@ export interface StageOptions {
   onHoverChange?: (hovering: boolean) => void
   /** Called right after a drag ends, with that character's final status. */
   onDragEnd?: (s: InstanceStatus) => void
+  /** Ask the owner to switch a character's behaviour after a drop. */
+  onAdapt?: (instanceId: string, behaviour: CharacterInstance['behaviour'], x: number, y: number) => void
 }
 
 /**
@@ -31,6 +33,7 @@ export class Stage {
   private statusClock = 0
   private lastStatus = ''
   private ready = false
+  private surfaces: Surface[] = []
   private destroyed = false
 
   constructor(private opts: StageOptions) {}
@@ -61,6 +64,14 @@ export class Stage {
   setArea(x: number, y: number, w: number, h: number): void {
     this.area = { x, y, w, h }
     this.world.position.set(x, y)
+    this.wake()
+  }
+
+  /** Window rectangles in canvas px (front to back); converted to area coordinates here. */
+  setSurfaces(rects: Surface[]): void {
+    this.surfaces = rects
+      .map((r) => ({ ...r, x: r.x - this.area.x, y: r.y - this.area.y }))
+      .filter((r) => r.x + r.w > 0 && r.x < this.area.w && r.y < this.area.h && r.y + r.h > 0)
     this.wake()
   }
 
@@ -108,7 +119,9 @@ export class Stage {
       volume: s.sound.enabled && !focus ? s.sound.volume : 0,
       idleSounds: s.sound.idleSounds,
       avoidOverlap: s.avoidOverlap,
-      entities: [...this.entities.values()]
+      entities: [...this.entities.values()],
+      surfaces: s.standOnWindows ? this.surfaces : [],
+      adapt: s.adaptOnDrop && this.opts.onAdapt ? (e, b, x, y) => this.opts.onAdapt!(e.id, b, x, y) : null
     }
   }
 
