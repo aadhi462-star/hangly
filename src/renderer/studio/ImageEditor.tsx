@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { dab, type Rect } from './imageOps'
 import type { StudioFrame } from './model'
 
-export type Tool = 'pan' | 'erase' | 'restore' | 'crop' | 'anchor'
+export type Tool = 'pan' | 'erase' | 'restore' | 'crop' | 'anchor' | 'wand'
 
 interface Props {
   frame: StudioFrame
@@ -19,6 +19,8 @@ interface Props {
   /** Suspension point, as a fraction of the image (anchor tool). */
   anchor?: { x: number; y: number }
   onAnchor?(p: { x: number; y: number }): void
+  /** Magic wand click, in image pixels. */
+  onWand?(p: { x: number; y: number }): void
   height?: number
 }
 
@@ -137,7 +139,7 @@ export function ImageEditor(p: Props): ReactNode {
     }
   }
 
-  const cursorStyle = p.tool === 'pan' || space.current ? 'grab' : p.tool === 'crop' || p.tool === 'anchor' ? 'crosshair' : 'none'
+  const cursorStyle = p.tool === 'pan' || space.current ? 'grab' : p.tool === 'crop' || p.tool === 'anchor' || p.tool === 'wand' ? 'crosshair' : 'none'
 
   return (
     <div
@@ -153,6 +155,8 @@ export function ImageEditor(p: Props): ReactNode {
           const im = toImage(l.x, l.y)
           drag.current = { kind: 'crop', sx: im.x, sy: im.y, ox: 0, oy: 0 }
           p.onCropRect({ x: im.x, y: im.y, w: 0, h: 0 })
+        } else if (p.tool === 'wand') {
+          p.onWand?.(toImage(l.x, l.y))
         } else if (p.tool === 'anchor') {
           const im = toImage(l.x, l.y)
           p.onAnchor?.({ x: Math.min(1, Math.max(0, im.x / p.frame.work.width)), y: Math.min(1, Math.max(0, im.y / p.frame.work.height)) })

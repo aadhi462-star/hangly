@@ -79,9 +79,9 @@ export function PrepareStep({ doc, selected, onSelect, onChange }: Props): React
     <div className="studio-grid">
       <div>
         <div className="editor-toolbar">
-          {(['pan', 'erase', 'restore', 'crop'] as Tool[]).map((t) => (
+          {(['pan', 'erase', 'restore', 'wand', 'crop'] as Tool[]).map((t) => (
             <button key={t} className={`tool${tool === t ? ' on' : ''}`} onClick={() => setTool(t)}>
-              {{ pan: '✋ Pan', erase: '⌫ Eraser', restore: '✚ Restore', crop: '⛶ Crop', anchor: '' }[t]}
+              {{ pan: '✋ Pan', erase: '⌫ Eraser', restore: '✚ Restore', wand: '✦ Magic wand', crop: '⛶ Crop', anchor: '' }[t]}
             </button>
           ))}
           <span className="sep" />
@@ -101,6 +101,13 @@ export function PrepareStep({ doc, selected, onSelect, onChange }: Props): React
           onCropRect={setCropRect}
           onStrokeStart={() => pushHistory(frame)}
           onStrokeEnd={changed}
+          onWand={(pt) => {
+            pushHistory(frame)
+            const cleared = removeBackground(frame.work, tolerance, softness, pt)
+            if (cleared === 0) frame.history.undo.pop()
+            setNotice(cleared === 0 ? 'Nothing to clear there. Click inside a background area.' : 'Cleared that area. Undo if it took too much.')
+            changed()
+          }}
         />
         <p className="muted small">Hold Space to pan while using a brush. Pinch or ⌘-scroll to zoom. {frame.work.width}×{frame.work.height}px.</p>
         {doc.frames.length > 1 && (
@@ -128,6 +135,12 @@ export function PrepareStep({ doc, selected, onSelect, onChange }: Props): React
           <Section title={tool === 'erase' ? 'Eraser' : 'Restore brush'} description={tool === 'restore' ? 'Paints the original pixels back.' : undefined}>
             <Slider label="Size" value={brush} min={2} max={200} format={(v) => `${v}px`} onChange={setBrush} />
             <Slider label="Hardness" value={hardness} min={0} max={0.95} step={0.05} format={(v) => `${Math.round(v * 100)}%`} onChange={setHardness} />
+          </Section>
+        )}
+
+        {tool === 'wand' && (
+          <Section title="Magic wand" description="Click an area to clear it, such as background showing through a gap the automatic removal can’t reach. Uses the tolerance above." >
+            <Slider label="Tolerance" value={tolerance} min={0} max={100} onChange={setTolerance} />
           </Section>
         )}
 

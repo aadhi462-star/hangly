@@ -96,13 +96,21 @@ export function hasTransparentBorder(c: HTMLCanvasElement): boolean {
 }
 
 /**
- * Remove a background by flood-filling from the image border. Pixels similar
- * to the dominant border colour (within `tolerance`, 0..100) are cleared;
- * pixels near the boundary get partial alpha for a soft edge.
- * Works well for plain or gently graded backgrounds; busy photos need the
+ * Remove a background by flood-filling from the image border.
+ *
+ * The fill grows pixel to pixel: a neighbour joins the background when it is
+ * close to the pixel it was reached from (so smooth gradients and vignettes are
+ * followed) and not wildly different from the dominant border colour (so the
+ * fill can't creep across a low-contrast subject). Pixels at the stopping edge
+ * get partial alpha for a soft cut. `tolerance` and `softness` are 0..100.
+ * Works well for studio-style and plain backgrounds; busy photos need the
  * eraser and restore brushes.
+ *
+ * With `at`, it works as a magic wand: the fill starts from that pixel and
+ * uses its colour as the reference, which clears enclosed gaps the border
+ * fill can't reach.
  */
-export function removeBackground(c: HTMLCanvasElement, tolerance: number, softness: number): number {
+export function removeBackground(c: HTMLCanvasElement, tolerance: number, softness: number, at?: { x: number; y: number }): number {
   const { width: w, height: h } = c
   const g = ctx2d(c)
   const img = g.getImageData(0, 0, w, h)
@@ -125,52 +133,76 @@ export function removeBackground(c: HTMLCanvasElement, tolerance: number, softne
   for (let y = 0; y < h; y++) { add(0, y); add(w - 1, y) }
   let best = { n: 0, r: 255, g: 255, b: 255 }
   for (const e of hist.values()) if (e.n > best.n) best = e
+  const ax = at ? Math.floor(at.x) : -1
+  const ay = at ? Math.floor(at.y) : -1
+  if (at) {
+    if (ax < 0 || ay < 0 || ax >= w || ay >= h) return 0
+    const i = idx(ax, ay, w)
+    best = { n: 1, r: d[i], g: d[i + 1], b: d[i + 2] }
+  }
   if (best.n === 0) return 0
-  const br = best.r / best.n
-  const bg = best.g / best.n
-  const bb = best.b / best.n
+  const bgR = best.r / best.n
+  const bgG = best.g / best.n
+  const bgB = best.b / best.n
 
-  const tol = (tolerance / 100) * 160 + 6
-  const soft = tol * (1 + softness / 50)
-  const dist = (i: number): number => {
-    const dr = d[i] - br
-    const dg = d[i + 1] - bg
-    const db = d[i + 2] - bb
+  const dist = (r1: number, g1: number, b1: number, r2: number, g2: number, b2: number): number => {
+    const dr = r1 - r2
+    const dg = g1 - g2
+    const db = b1 - b2
     return Math.sqrt(dr * dr * 0.3 + dg * dg * 0.59 + db * db * 0.11) * 1.7
   }
+  const step = 6 + (tolerance / 100) * 40 // max difference between neighbouring background pixels
+  // Max drift from the reference colour. The wand is kept tight: it clears one
+  // uniform gap and must not creep through soft shadows into the subject.
+  const global = at ? 12 + (tolerance / 100) * 90 : 30 + (tolerance / 100) * 300
+  const soft = step * (1.5 + softness / 25)
 
   const seen = new Uint8Array(w * h)
   const stack = new Int32Array(w * h)
   let sp = 0
-  const push = (p: number): void => {
-    if (seen[p]) return
+  let removed = 0
+  const accept = (p: number): void => {
     seen[p] = 1
     stack[sp++] = p
   }
-  for (let x = 0; x < w; x++) { push(x); push((h - 1) * w + x) }
-  for (let y = 0; y < h; y++) { push(y * w); push(y * w + w - 1) }
+  const seed = (p: number): void => {
+    if (seen[p]) return
+    const i = p * 4
+    if (d[i + 3] < 16 || dist(d[i], d[i + 1], d[i + 2], bgR, bgG, bgB) <= global) accept(p)
+  }
+  if (at) accept(ay * w + ax)
+  else {
+    for (let x = 0; x < w; x++) { seed(x); seed((h - 1) * w + x) }
+    for (let y = 0; y < h; y++) { seed(y * w); seed(y * w + w - 1) }
+  }
 
-  let removed = 0
+  // Original colours of accepted pixels are needed after their alpha is cleared.
+  const src = new Uint8ClampedArray(d)
+  const visit = (q: number, from: number): void => {
+    if (seen[q]) return
+    const i = q * 4
+    const f = from * 4
+    if (src[i + 3] < 16) return accept(q)
+    const local = dist(src[i], src[i + 1], src[i + 2], src[f], src[f + 1], src[f + 2])
+    const drift = dist(src[i], src[i + 1], src[i + 2], bgR, bgG, bgB)
+    if (local <= step && drift <= global) return accept(q)
+    if (local <= soft && drift <= global * 1.3) {
+      // Edge pixel: fade rather than cut, and stop spreading here.
+      seen[q] = 2
+      d[i + 3] = Math.min(d[i + 3], Math.round(((local - step) / (soft - step)) * 255))
+    }
+  }
   while (sp > 0) {
     const p = stack[--sp]
-    const i = p * 4
-    const a = d[i + 3]
-    const dd = a < 16 ? 0 : dist(i)
-    if (dd > soft) continue
-    if (dd <= tol) {
-      d[i + 3] = 0
+    if (d[p * 4 + 3] !== 0) {
+      d[p * 4 + 3] = 0
       removed++
-    } else {
-      // In the soft band: fade instead of a hard cut, and stop spreading.
-      d[i + 3] = Math.min(a, Math.round(((dd - tol) / (soft - tol)) * 255))
-      continue
     }
     const x = p % w
-    const y = (p / w) | 0
-    if (x > 0) push(p - 1)
-    if (x < w - 1) push(p + 1)
-    if (y > 0) push(p - w)
-    if (y < h - 1) push(p + w)
+    if (x > 0) visit(p - 1, p)
+    if (x < w - 1) visit(p + 1, p)
+    if (p >= w) visit(p - w, p)
+    if (p < w * (h - 1)) visit(p + w, p)
   }
   g.putImageData(img, 0, 0)
   return removed / (w * h)
