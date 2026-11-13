@@ -1,5 +1,6 @@
 import 'pixi.js/unsafe-eval'
 import { BUILT_IN_CHARACTERS } from '../../shared/defaults'
+import { FOODS } from '../../shared/food'
 import { characterAssetUrl } from '../../shared/ipc'
 import type { AppState, CharacterDefinition, OverlayInit } from '../../shared/types'
 import { Stage } from '../engine/Stage'
@@ -82,7 +83,14 @@ async function start(): Promise<void> {
     stage.pointerUp(e.clientX, e.clientY)
     if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId)
   })
-  canvas.addEventListener('contextmenu', (e) => e.preventDefault())
+  canvas.addEventListener('contextmenu', (e) => {
+    e.preventDefault()
+    stage.feedAt(e.clientX, e.clientY)
+  })
+  api.overlay.onFeed(({ instanceId, foodId }) => {
+    const food = FOODS[foodId]
+    if (food) stage.feed(instanceId, food)
+  })
 
   state = await api.getState()
   apply()

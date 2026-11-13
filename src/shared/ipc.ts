@@ -66,6 +66,10 @@ export interface ScreenlyApi {
   saveHangingPreset(name: string, config: HangingConfig): Promise<Result<string>>
   deleteHangingPreset(id: string): Promise<Result>
 
+  /** Offer a character one of its foods (validated against its diet in main). */
+  feed(instanceId: string, foodId?: string): Promise<Result>
+  feedAll(): Promise<Result>
+
   openDataFolder(): Promise<void>
   quit(): Promise<void>
 
@@ -73,6 +77,8 @@ export interface ScreenlyApi {
     onInit(cb: (init: OverlayInit) => void): () => void
     /** Global cursor position, pushed by main while the overlay is visible. */
     onCursor(cb: (p: { x: number; y: number }) => void): () => void
+    /** Main asks this overlay to offer a character some food. */
+    onFeed(cb: (req: { instanceId: string; foodId: string }) => void): () => void
     /** Window rectangles in global coordinates, front to back. */
     onSurfaces(cb: (rects: { id: number; x: number; y: number; w: number; h: number }[]) => void): () => void
     /** Ask main to switch a character's behaviour after a drop (validated in main). */

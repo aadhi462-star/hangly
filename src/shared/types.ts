@@ -36,6 +36,7 @@ export type CharState =
   | 'flying'
   | 'landing'
   | 'interacting'
+  | 'eating'
   | 'dragging'
 
 export interface HangingConfig {

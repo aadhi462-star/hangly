@@ -1,6 +1,7 @@
 import { BrowserWindow, app, globalShortcut, ipcMain, nativeTheme, shell, type IpcMainInvokeEvent } from 'electron'
 import { join } from 'node:path'
 import { BUILT_IN_CHARACTERS, DEFAULT_HANGING, newInstance } from '../shared/defaults'
+import { foodsFor } from '../shared/food'
 import type { Align, DeepPartial, Page, Result, SaveCharacterRequest } from '../shared/ipc'
 import type { CharacterInstance, HangingConfig, InstanceStatus, Settings } from '../shared/types'
 import {
@@ -39,6 +40,7 @@ const tray = new TrayManager({
   toggleHidden: () => toggleHidden(),
   toggleFocus: () => updateSettings({ focus: { active: !store.state.settings.focus.active } }),
   toggleInteraction: () => updateSettings({ interactionEnabled: !store.state.settings.interactionEnabled }),
+  feedAll: () => feedAll(),
   quit: () => app.quit()
 })
 
@@ -177,6 +179,23 @@ function emptiestX(displayId: number, behaviour: CharacterInstance['behaviour'],
     }
   }
   return Math.round(best)
+}
+
+/** Offer a character food from its own diet; the overlay showing it does the rest. */
+function feed(instanceId: string, foodId?: string): Result {
+  const i = instance(instanceId)
+  const def = i && findDef(i.characterId)
+  if (!i || !def) return { ok: false, error: 'Not found' }
+  const diet = foodsFor(def)
+  const food = foodId ? diet.find((f) => f.id === foodId) : diet[0]
+  if (!food) return { ok: false, error: `${def.name} doesn't eat that.` }
+  if (i.hidden || store.state.settings.hiddenAll) return { ok: false, error: `${def.name} is hidden.` }
+  overlays.broadcast('overlay:feed', { instanceId, foodId: food.id })
+  return { ok: true }
+}
+
+function feedAll(): void {
+  for (const i of store.state.instances) feed(i.instanceId)
 }
 
 function checkSchedule(): void {
@@ -403,6 +422,11 @@ function registerIpc(): void {
     return ok()
   })
 
+  handle('instance:feed', (_e, id: string, foodId: string) => feed(str(id), str(foodId) || undefined))
+  handle('instance:feedAll', () => {
+    feedAll()
+    return ok()
+  })
   handle('app:openData', () => shell.openPath(dataDir()))
   handle('app:quit', () => app.quit())
 

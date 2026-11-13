@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { BEHAVIOUR_LABELS, STATE_LABELS } from '../../../shared/defaults'
+import { foodsFor } from '../../../shared/food'
 import type { DeepPartial } from '../../../shared/ipc'
 import type { Behaviour, CharacterInstance } from '../../../shared/types'
 import { api, findCharacter, run, useUi } from '../store'
@@ -81,6 +82,16 @@ export function Customize({ instanceId }: { instanceId: string }): ReactNode {
               <Icon name="trash" /> Remove
             </button>
           </div>
+        </div>
+
+        <div className="feed-row">
+          <span className="field-label">Feed</span>
+          {foodsFor(def).map((f) => (
+            <button key={f.id} className="food-btn" title={`Give ${f.name.toLowerCase()}`} onClick={() => void run(api.feed(instanceId, f.id))}>
+              <span aria-hidden>{f.emoji}</span> {f.name}
+            </button>
+          ))}
+          <span className="muted small">Tip: right-click it on the desktop to feed its favourite.</span>
         </div>
 
         <nav className="tabs">

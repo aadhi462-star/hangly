@@ -1,4 +1,5 @@
 import { Application, Container } from 'pixi.js'
+import { foodsFor, type Food } from '../../shared/food'
 import type { CharacterDefinition, CharacterInstance, InstanceStatus, Settings } from '../../shared/types'
 import { Entity, type AssetResolver, type Surface, type World } from './Entity'
 
@@ -90,6 +91,7 @@ export class Stage {
         this.entities.set(inst.instanceId, e)
         this.layer.addChild(e.root)
         this.threads.addChild(e.thread)
+        this.layer.addChild(e.foodView)
       } else {
         if (e.def !== def && (e.def.updatedAt !== def.updatedAt || e.def.id !== def.id)) e.setDefinition(def)
         e.def = def
@@ -195,6 +197,25 @@ export class Stage {
       }
     }
     return !!hit
+  }
+
+  /** Offer food to one character. */
+  feed(instanceId: string, food: Food): void {
+    const e = this.entities.get(instanceId)
+    if (!e || !this.settings) return
+    e.feed(food, this.world_())
+    this.wake()
+  }
+
+  /** Right-click: give the character under the pointer its favourite food. Returns true if one was fed. */
+  feedAt(x: number, y: number): boolean {
+    this.setCursor({ x, y })
+    const e = this.hovered
+    if (!e || !this.settings) return false
+    const food = foodsFor(e.def)[0]
+    if (food) e.feed(food, this.world_())
+    this.wake()
+    return true
   }
 
   pointerDown(x: number, y: number): boolean {

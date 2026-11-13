@@ -49,6 +49,9 @@ const api: ScreenlyApi = {
   saveHangingPreset: (name, config) => inv('hanging:save', name, config),
   deleteHangingPreset: (id) => inv('hanging:delete', id),
 
+  feed: (id, foodId) => inv('instance:feed', id, foodId),
+  feedAll: () => inv('instance:feedAll'),
+
   openDataFolder: () => inv('app:openData'),
   quit: () => inv('app:quit'),
 
@@ -56,6 +59,7 @@ const api: ScreenlyApi = {
     onInit: (cb) => on('overlay:init', cb),
     onCursor: (cb) => on('overlay:cursor', cb),
     onSurfaces: (cb) => on('overlay:surfaces', cb),
+    onFeed: (cb) => on('overlay:feed', cb),
     adapt: (id, behaviour, x, y) => ipcRenderer.send('overlay:adapt', id, behaviour, x, y),
     setInteractive: (v) => ipcRenderer.send('overlay:interactive', v),
     reportStatus: (s) => ipcRenderer.send('overlay:status', s),

@@ -329,3 +329,11 @@ button.frame { cursor: default; }
 .studio-side .slider { grid-template-columns: 88px 1fr 56px; gap: 8px; }
 .frame label { font-size: 11px; }
 .frame input { width: 52px; }
+
+.feed-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 20px; border-bottom: 1px solid var(--line); }
+.feed-row .field-label { margin-right: 4px; }
+.food-btn { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel-2); font-size: 12.5px; }
+.food-btn:hover { border-color: var(--accent); }
+.food-btn span { font-size: 15px; }
+.feed-row .muted { flex-basis: 100%; }
+.icon-btn.food-icon { font-size: 16px; }

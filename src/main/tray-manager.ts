@@ -8,6 +8,7 @@ export interface TrayActions {
   toggleHidden(): void
   toggleFocus(): void
   toggleInteraction(): void
+  feedAll(): void
   quit(): void
 }
 
@@ -68,6 +69,7 @@ export class TrayManager {
         { type: 'separator' },
         { label: s.pausedAll ? 'Resume all' : 'Pause all', accelerator: s.shortcuts.togglePause, click: () => a.togglePause() },
         { label: s.hiddenAll ? 'Show all' : 'Hide all', accelerator: s.shortcuts.emergencyHide, click: () => a.toggleHidden() },
+        { label: 'Feed everyone', enabled: count > 0, click: () => a.feedAll() },
         { label: 'Focus mode', type: 'checkbox', checked: s.focus.active, click: () => a.toggleFocus() },
         {
           label: 'Allow interaction (drag / click)',

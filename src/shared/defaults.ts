@@ -231,7 +231,7 @@ export const STATE_LABELS: Record<string, string> = {
   idle: 'Idle', walking: 'Walking', running: 'Running', sitting: 'Sitting', sleeping: 'Sleeping',
   looking: 'Looking around', stretching: 'Stretching', hanging: 'Hanging', descending: 'Descending',
   ascending: 'Ascending', swinging: 'Swinging', climbing: 'Climbing', flying: 'Flying', landing: 'Landing',
-  interacting: 'Interacting', dragging: 'Being dragged'
+  interacting: 'Interacting', eating: 'Eating', dragging: 'Being dragged'
 }
 
 export const BEHAVIOUR_LABELS: Record<Behaviour, string> = {

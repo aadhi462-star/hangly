@@ -32,6 +32,7 @@ npm run dist:mac   # build a .dmg / .zip with electron-builder
   - ⌘⌥H is the emergency hide/show
   - ⌘⌥S opens the panel
   - ⌘⌥I toggles interaction (turn it off and everything is click-through)
+- **Feeding**: every animal has its own diet (tiger: meat, horse: apples and carrots, squirrel: acorns, owls: mice, spider: flies, and so on). Use **Feed** in a character's Customise panel, the food button on Active Characters, **Feed everyone** in the menu bar, or **right-click** a character on the desktop to give it its favourite. The food drops nearby; walkers walk over to it, flyers swoop to it, climbers climb to it, and then they eat and settle down.
 - **On the desktop**: drag a character to move it, click it for a reaction, or rub the cursor over it to pet it. A hanging character dropped after a drag swings from its anchor.
 
 ## Architecture

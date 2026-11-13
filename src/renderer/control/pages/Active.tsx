@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { BEHAVIOUR_LABELS, STATE_LABELS } from '../../../shared/defaults'
+import { foodsFor } from '../../../shared/food'
 import type { Behaviour } from '../../../shared/types'
 import { api, findCharacter, run, useUi } from '../store'
 import { Empty, Icon, PageHeader, Slider, Thumb, pct } from '../ui'
@@ -20,6 +21,7 @@ export function Active(): ReactNode {
         actions={
           list.length > 0 && (
             <>
+              <button className="btn" onClick={() => void run(api.feedAll(), 'Dinner time')}>Feed everyone</button>
               <button className="btn" onClick={() => api.updateSettings({ pausedAll: !app.settings.pausedAll })}>
                 <Icon name={app.settings.pausedAll ? 'play' : 'pause'} /> {app.settings.pausedAll ? 'Resume all' : 'Pause all'}
               </button>
@@ -74,6 +76,11 @@ export function Active(): ReactNode {
                   {inst.behaviour === 'hang' && <HangingPlace inst={inst} compact />}
                 </div>
                 <div className="cell-actions">
+                  {def && foodsFor(def)[0] && (
+                    <button className="icon-btn food-icon" title={`Feed ${foodsFor(def)[0].name.toLowerCase()}`} onClick={() => void run(api.feed(inst.instanceId))}>
+                      {foodsFor(def)[0].emoji}
+                    </button>
+                  )}
                   <button className="icon-btn" title={inst.paused ? 'Resume' : 'Pause'} onClick={() => void api.updateInstance(inst.instanceId, { paused: !inst.paused })}>
                     <Icon name={inst.paused ? 'play' : 'pause'} />
                   </button>
