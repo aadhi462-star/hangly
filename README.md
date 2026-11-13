@@ -95,7 +95,7 @@ Export writes a single `.screenpal` file (JSON with base64 images). Import alway
 ## Creating custom characters (Character Studio)
 
 1. **Import**: PNG, JPEG, WebP or GIF, by drag and drop or the file picker. Several files become frames. Animated GIF and WebP files are split into frames with their timings (WebCodecs). Sprite sheets are sliced on a grid that you set or auto-detect, and you click cells to skip them.
-2. **Prepare**: local background removal (a flood fill from the image border, with tolerance and edge softness), eraser and restore brushes (size and hardness), crop, trim, rotate (90° or free), flip, resize, shrink edge, feather, zoom and pan, undo/redo and reset. Edits can apply to all frames.
+2. **Prepare**: **AI remove background** (the ormbg segmentation model, Apache-2.0, run on this Mac with ONNX Runtime WebAssembly; the first use downloads the 176 MB model once from Hugging Face and images are never uploaded), a **Quick remove** for plain backgrounds (a gradient-aware flood fill from the border), a magic wand for enclosed gaps, automatic edge-colour cleanup, eraser and restore brushes (size and hardness), crop, trim, rotate (90° or free), flip, resize, shrink edge, feather, zoom and pan, undo/redo and reset. Edits can apply to all frames.
 3. **Animate**: sequences for Idle, Walking, Running, Hanging, Flying, Climbing, Sleeping and Interacting. The timeline has thumbnails, per-frame durations, drag or arrow reordering, duplicate, remove, loop, play/pause, a scrubber and fps presets. Empty sequences fall back to Idle.
 4. **Configure behaviour**: name, size, speed and facing, plus the behaviours your frames support. The hanging editor lets you click the image to set the suspension point. It has controls for thread length, thickness and colour, amplitude, frequency, damping, rotation, descent distance and speeds, return-to-top and idle sway, plus reusable hanging presets. Its live preview updates as you change settings.
 5. **Preview and deploy**: a simulated desktop that runs the real engine, with test sliders and backgrounds. Then **Save character** or **Save and add to desktop**.
@@ -107,7 +107,7 @@ For real limb movement, provide several frames: a GIF or animated WebP, a sprite
 ## Not implemented yet (honest list)
 
 - **Body-part segmentation and skeletal rigging** (layers, bones, pivots) and **AI-assisted segmentation**. The Studio says so in its UI; these are the next big pieces.
-- **AI background removal.** The built-in remover is a classical colour flood fill. It works on plain or simple backgrounds; busy photos need the brushes. A local ML model such as ONNX/`@imgly/background-removal`, or an opt-in external service with a consent dialog, would plug into `studio/imageOps.ts`.
+- **WebGPU acceleration for the AI cut-out.** It's switched off (`USE_WEBGPU` in `studio/aiMatte.ts`) because on some Macs the model exceeds the GPU's shader limits; the CPU path takes a few seconds per image.
 - **Dragging a character from one display to another.** Moving between displays works from the Customise panel.
 - **Characters interacting with each other.** They do avoid crowding on the ground.
 - **Recorded sound effects.** The current sounds are short synthesised effects, and sound is off by default.

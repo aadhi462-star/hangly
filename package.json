@@ -25,6 +25,7 @@
     "vite": "^8.3.8"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.3.2",
     "pixi.js": "^8.23.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
@@ -33,11 +34,19 @@
   "build": {
     "appId": "com.screenpals.app",
     "productName": "ScreenPals",
-    "files": ["out/**/*", "package.json"],
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
     "mac": {
       "category": "public.app-category.entertainment",
-      "target": ["dmg", "zip"],
-      "extendInfo": { "LSUIElement": false }
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "extendInfo": {
+        "LSUIElement": false
+      }
     }
   }
 }

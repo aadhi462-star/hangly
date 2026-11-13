@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Section, Slider, Toggle } from '../control/ui'
+import { AI_MODEL, aiRemoveBackground } from './aiMatte'
 import { FrameThumb } from './ImportStep'
 import { ImageEditor, type Tool } from './ImageEditor'
 import { crop, defringe, erodeEdges, featherEdges, flip, hasTransparentBorder, opaqueBounds, removeBackground, resize, rotate, type Rect } from './imageOps'
@@ -48,6 +49,33 @@ export function PrepareStep({ doc, selected, onSelect, onChange }: Props): React
         changed()
       }
     }, 30)
+  }
+
+  async function aiRemove(): Promise<void> {
+    const list = targets()
+    try {
+      for (const [k, f] of list.entries()) {
+        const label = list.length > 1 ? ` (${k + 1}/${list.length})` : ''
+        pushHistory(f)
+        await aiRemoveBackground(f.work, (p) =>
+          setBusy(
+            p.stage === 'download'
+              ? `Downloading AI model… ${Math.round((p.progress ?? 0) * 100)}%`
+              : p.stage === 'load'
+                ? 'Loading AI model…'
+                : `Cutting out${label}…`
+          )
+        )
+        // The mask is already soft; only recolour the edge to remove background tint.
+        defringe(f.work, 2)
+      }
+      setNotice(`Cut out with ${AI_MODEL.name}. Check the edges; the wand and brushes still work for touch-ups.`)
+    } catch (err) {
+      setNotice(`AI cut-out failed: ${(err as Error).message}. Check your internet connection for the one-time model download, or use Quick remove.`)
+    } finally {
+      setBusy(null)
+      changed()
+    }
   }
 
   function autoRemove(): void {
@@ -125,11 +153,17 @@ export function PrepareStep({ doc, selected, onSelect, onChange }: Props): React
       </div>
 
       <aside className="studio-side">
-        <Section title="Background removal" description="Runs on this Mac. Best on plain or simple backgrounds.">
+        <Section title="Background removal">
+          <button className="btn primary" disabled={!!busy} onClick={() => void aiRemove()}>AI remove background</button>
+          <p className="muted small" style={{ margin: '6px 0 10px' }}>
+            Best quality for photos. Runs on this Mac with the {AI_MODEL.name} model; the first use downloads it once (about {AI_MODEL.sizeMb} MB from
+            Hugging Face). Your images are never uploaded.
+          </p>
+          <h4>Quick remove (plain backgrounds)</h4>
           <Slider label="Tolerance" value={tolerance} min={0} max={100} onChange={setTolerance} />
           <Slider label="Edge softness" value={softness} min={0} max={100} onChange={setSoftness} />
           {doc.frames.length > 1 && <Toggle label="Apply to all frames" checked={allFrames} onChange={setAllFrames} />}
-          <button className="btn primary" disabled={!!busy} onClick={autoRemove}>Remove background</button>
+          <button className="btn" disabled={!!busy} onClick={autoRemove}>Quick remove</button>
           {notice && <p className="notice" style={{ marginTop: 8 }}>{notice}</p>}
         </Section>
 
