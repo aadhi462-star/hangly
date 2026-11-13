@@ -204,6 +204,30 @@ export function removeBackground(c: HTMLCanvasElement, tolerance: number, softne
     if (p >= w) visit(p - w, p)
     if (p < w * (h - 1)) visit(p + w, p)
   }
+
+  // Second, relaxed pass: background-looking pixels that border the cleared
+  // area (leftover haze in gaps and along the outline) are cleared too, as
+  // long as they stay far closer to the background than to the subject.
+  const relaxedStep = step * 2.5
+  const relaxedDrift = global * 0.6
+  const edge: number[] = []
+  for (let p = 0; p < w * h; p++) if (seen[p] === 1) edge.push(p)
+  for (let k = 0; k < edge.length; k++) {
+    const p = edge[k]
+    const x = p % w
+    for (const q of [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, p - w, p + w]) {
+      if (q < 0 || q >= w * h || seen[q] === 1) continue
+      const i = q * 4
+      const f = p * 4
+      const local = dist(src[i], src[i + 1], src[i + 2], src[f], src[f + 1], src[f + 2])
+      const drift = dist(src[i], src[i + 1], src[i + 2], bgR, bgG, bgB)
+      if (local > relaxedStep || drift > relaxedDrift) continue
+      seen[q] = 1
+      if (d[i + 3] !== 0) removed++
+      d[i + 3] = 0
+      edge.push(q)
+    }
+  }
   g.putImageData(img, 0, 0)
   return removed / (w * h)
 }
@@ -212,6 +236,8 @@ export function removeBackground(c: HTMLCanvasElement, tolerance: number, softne
  * Remove colour fringes (the light or dark halo left from the old background).
  * Pixels within `radius` of transparency take the average colour of solid
  * pixels just inside them; their alpha is kept, so the edge stays smooth.
+ * Semi-transparent pixels with no solid pixels nearby are leftover background
+ * haze and are cleared, and tiny detached specks are removed.
  */
 export function defringe(c: HTMLCanvasElement, radius = 2): void {
   const { width: w, height: h } = c
@@ -263,13 +289,50 @@ export function defringe(c: HTMLCanvasElement, radius = 2): void {
           n++
         }
       }
-      if (!n) continue
+      if (!n) {
+        if (src[p * 4 + 3] < 250) d[p * 4 + 3] = 0
+        continue
+      }
       d[p * 4] = r / n
       d[p * 4 + 1] = gg / n
       d[p * 4 + 2] = b / n
     }
   }
+  removeSpecks(d, w, h, Math.max(12, Math.round(w * h * 0.0004)))
   g.putImageData(img, 0, 0)
+}
+
+/** Clear connected groups of visible pixels smaller than `minArea` (in place on RGBA data). */
+function removeSpecks(d: Uint8ClampedArray, w: number, h: number, minArea: number): void {
+  const label = new Uint8Array(w * h)
+  const stack = new Int32Array(w * h)
+  const members: number[] = []
+  for (let s = 0; s < w * h; s++) {
+    if (label[s] || d[s * 4 + 3] < 8) continue
+    let sp = 0
+    members.length = 0
+    stack[sp++] = s
+    label[s] = 1
+    while (sp > 0) {
+      const p = stack[--sp]
+      members.push(p)
+      const x = p % w
+      const y = (p / w) | 0
+      // 8-connected so thin diagonal lines (like a web strand) stay one piece.
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx
+          const yy = y + dy
+          if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue
+          const q = yy * w + xx
+          if (label[q] || d[q * 4 + 3] < 8) continue
+          label[q] = 1
+          stack[sp++] = q
+        }
+      }
+    }
+    if (members.length < minArea) for (const p of members) d[p * 4 + 3] = 0
+  }
 }
 
 /** Shrink the opaque region by `px` (removes coloured fringes left from the old background). */
