@@ -9,11 +9,13 @@ interface Props {
   doc: StudioDoc
   pixels: number
   saving: boolean
+  /** A copy of this character is already on the desktop. */
+  onDesktop: boolean
   onSave(addToDesktop: boolean): void
 }
 
 /** Stage 5: try the character on a simulated desktop, then save it or put it on the real one. */
-export function PreviewStep({ doc, pixels, saving, onSave }: Props): ReactNode {
+export function PreviewStep({ doc, pixels, saving, onDesktop, onSave }: Props): ReactNode {
   const [behaviour, setBehaviour] = useState<Behaviour>(doc.defaultBehaviour)
   const [scale, setScale] = useState(1)
   const [opacity, setOpacity] = useState(1)
@@ -48,7 +50,9 @@ export function PreviewStep({ doc, pixels, saving, onSave }: Props): ReactNode {
           <p className="muted small">Size and speed here are only for testing; each copy on your desktop has its own settings.</p>
           <div className="col gap">
             <button className="btn" disabled={saving} onClick={() => onSave(false)}>{saving ? 'Saving…' : doc.editId ? 'Save changes' : 'Save character'}</button>
-            <button className="btn primary" disabled={saving} onClick={() => onSave(true)}>Save and add to desktop</button>
+            <button className="btn primary" disabled={saving} onClick={() => onSave(true)}>
+              {onDesktop ? 'Save and update on desktop' : 'Save and add to desktop'}
+            </button>
           </div>
         </Section>
       </aside>

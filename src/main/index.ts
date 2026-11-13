@@ -151,6 +151,23 @@ function reposition(i: CharacterInstance, pos: { x?: number; y?: number; align?:
   i.positionVersion++
 }
 
+/** The x-position (work-area px) furthest from other characters with the same behaviour on this display. */
+function emptiestX(displayId: number, behaviour: CharacterInstance['behaviour'], width: number): number {
+  const taken = store.state.instances.filter((i) => i.displayId === displayId && i.behaviour === behaviour).map((i) => i.x)
+  if (taken.length === 0) return Math.round(width * (0.3 + Math.random() * 0.4))
+  let best = width / 2
+  let bestGap = -1
+  for (let k = 0; k <= 32; k++) {
+    const x = width * (0.06 + (0.88 * k) / 32)
+    const gap = Math.min(...taken.map((t) => Math.abs(t - x)))
+    if (gap > bestGap) {
+      bestGap = gap
+      best = x
+    }
+  }
+  return Math.round(best)
+}
+
 function checkSchedule(): void {
   const { focus } = store.state.settings
   if (!focus.schedule.enabled) {
@@ -208,6 +225,8 @@ function registerIpc(): void {
     const did = typeof displayId === 'number' && listDisplays().some((d) => d.id === displayId) ? displayId : primaryDisplayId()
     const wa = workArea(did)
     const inst = newInstance(def, did, wa.width)
+    // Spread characters out instead of piling new ones onto existing ones.
+    inst.x = emptiestX(did, inst.behaviour, wa.width)
     inst.y = def.defaultBehaviour === 'stationary' ? wa.height : inst.y
     store.mutate((s) => {
       s.instances.push(inst)

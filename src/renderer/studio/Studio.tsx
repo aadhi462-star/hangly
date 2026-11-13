@@ -61,7 +61,11 @@ export function Studio(): ReactNode {
       if (typeof id !== 'string') return
       if (doc.editId) releaseTextures(assetUrl(id, '').replace(/\/$/, ''))
       doc.editId = id
-      if (addToDesktop) await run(api.addInstance(id), `${doc.name} is on your desktop`)
+      // Saving again while tweaking must not stack another copy on the desktop:
+      // copies already there pick up the new version automatically.
+      const onDesktop = useUi.getState().app?.instances.some((i) => i.characterId === id)
+      if (addToDesktop && !onDesktop) await run(api.addInstance(id), `${doc.name} is on your desktop`)
+      else if (addToDesktop) useUi.getState().toast(`${doc.name} updated on your desktop`)
       else useUi.getState().toast(`${doc.name} saved to your library`)
       bump()
     } finally {
@@ -118,7 +122,15 @@ export function Studio(): ReactNode {
       {step === 1 && <PrepareStep doc={doc} selected={selected} onSelect={setSelected} onChange={bumpPixels} />}
       {step === 2 && <AnimateStep doc={doc} onChange={bumpPixels} />}
       {step === 3 && <BehaviourStep doc={doc} version={version} pixels={pixels} onChange={bump} />}
-      {step === 4 && <PreviewStep doc={doc} pixels={pixels} saving={saving} onSave={(add) => void save(add)} />}
+      {step === 4 && (
+        <PreviewStep
+          doc={doc}
+          pixels={pixels}
+          saving={saving}
+          onDesktop={!!doc.editId && !!app?.instances.some((i) => i.characterId === doc.editId)}
+          onSave={(add) => void save(add)}
+        />
+      )}
     </div>
   )
 }
