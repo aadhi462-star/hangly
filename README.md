@@ -157,3 +157,9 @@ For real limb movement, provide several frames: a GIF or animated WebP, a sprite
 - The overlay windows are non-focusable panels. They never take keyboard focus, so global shortcuts are the keyboard interface.
 - Mission Control and Exposé hide or move the overlay along with other windows; this is normal macOS behaviour.
 - Unsigned builds have to be opened with right-click → Open the first time (Gatekeeper).
+
+## Licence
+
+[MIT](LICENSE): use it, change it, share it, build something new from it. Just keep the copyright notice.
+
+Not covered: images you import into the app (such as photos of film characters) belong to their owners and are never part of this repository.

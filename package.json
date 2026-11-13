@@ -5,7 +5,7 @@
   "description": "Screenly \u2014 a little life on your desktop.",
   "main": "out/main/index.js",
   "type": "commonjs",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
