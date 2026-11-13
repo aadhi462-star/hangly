@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { BEHAVIOUR_LABELS, BUILT_IN_CHARACTERS } from '../../../shared/defaults'
 import type { CharacterCategory, CharacterDefinition } from '../../../shared/types'
 import { allCharacters, api, run, useUi } from '../store'
-import { Empty, Icon, PageHeader, Segmented, Thumb, Toggle } from '../ui'
+import { Empty, Icon, PageHeader, Segmented, Thumb } from '../ui'
 
 const CATS: { value: 'all' | CharacterCategory; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -38,7 +38,7 @@ export function Library(): ReactNode {
     <div className="page">
       <PageHeader
         title="Character Library"
-        subtitle={`${BUILT_IN_CHARACTERS.filter((c) => c.style !== 'cartoon').length} realistic built-in characters and ${app.customCharacters.length} of your own.`}
+        subtitle={`${BUILT_IN_CHARACTERS.length} built-in characters and ${app.customCharacters.length} of your own.`}
         actions={
           <>
             <button className="btn" onClick={() => void run(api.importCharacter(), 'Character imported')}>
@@ -52,10 +52,7 @@ export function Library(): ReactNode {
       />
       <div className="toolbar">
         <Segmented value={cat} options={CATS} onChange={setCat} />
-        <div className="row gap">
-          <Toggle label="Show cartoon characters" checked={app.settings.showCartoon} onChange={(showCartoon) => void api.updateSettings({ showCartoon })} />
-          <input className="search" placeholder="Search characters" value={q} onChange={(e) => setQ(e.target.value)} />
-        </div>
+        <input className="search" placeholder="Search characters" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
 
       {chars.length === 0 ? (
@@ -82,10 +79,7 @@ export function Library(): ReactNode {
                 </div>
                 <div className="char-meta">
                   <h3>{def.name}</h3>
-                  <p className="muted small">
-                    {def.builtIn ? def.category[0].toUpperCase() + def.category.slice(1) : 'Custom character'}
-                    {def.style === 'cartoon' ? ' · Cartoon' : def.credit ? ` · ${def.credit}` : ''}
-                  </p>
+                  <p className="muted small">{def.builtIn ? def.category[0].toUpperCase() + def.category.slice(1) : 'Custom character'}</p>
                   {def.description && <p className="small desc">{def.description}</p>}
                   <div className="chips">
                     {def.behaviours.map((b) => (

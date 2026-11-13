@@ -53,13 +53,6 @@
       {
         "from": "resources/window-surfaces",
         "to": "window-surfaces"
-      },
-      {
-        "from": "resources/characters",
-        "to": "characters",
-        "filter": [
-          "**/*.png"
-        ]
       }
     ]
   }

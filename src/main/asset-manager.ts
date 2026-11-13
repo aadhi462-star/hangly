@@ -1,4 +1,4 @@
-import { app, dialog, net, protocol } from 'electron'
+import { dialog, net, protocol } from 'electron'
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -41,7 +41,6 @@ export function handleAssetProtocol(): void {
   protocol.handle(ASSET_SCHEME, async (req) => {
     try {
       const url = new URL(req.url)
-      if (url.hostname === 'builtin') return serveBuiltIn(url)
       if (url.hostname !== 'char') return new Response('Not found', { status: 404 })
       const [id, ...rest] = url.pathname.split('/').filter(Boolean).map(decodeURIComponent)
       const rel = rest.join('/')
@@ -57,25 +56,6 @@ export function handleAssetProtocol(): void {
       return new Response('Bad request', { status: 400 })
     }
   })
-}
-
-/** Bundled artwork for built-in characters (resources/characters/<id>/<file>.png). */
-const BUILTIN_FILE_RE = /^[A-Za-z0-9_.-]{1,80}\.png$/
-
-function builtInRoot(): string {
-  return app.isPackaged ? join(process.resourcesPath, 'characters') : join(app.getAppPath(), 'resources', 'characters')
-}
-
-async function serveBuiltIn(url: URL): Promise<Response> {
-  const [id, file] = url.pathname.split('/').filter(Boolean).map(decodeURIComponent)
-  if (!id || !ID_RE.test(id) || !file || !BUILTIN_FILE_RE.test(file)) return new Response('Forbidden', { status: 403 })
-  const base = resolve(builtInRoot())
-  const full = resolve(base, id, file)
-  if (!full.startsWith(base + sep) || !existsSync(full)) return new Response('Not found', { status: 404 })
-  const res = await net.fetch(pathToFileURL(full).toString())
-  const headers = new Headers(res.headers)
-  headers.set('Access-Control-Allow-Origin', '*')
-  return new Response(res.body, { status: res.status, headers })
 }
 
 function sniffImage(bytes: Uint8Array): boolean {

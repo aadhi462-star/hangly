@@ -100,10 +100,6 @@ export interface CharacterDefinition {
   /** Relative path to a preview image (image characters only). */
   preview?: string
   description?: string
-  /** Built-ins: realistic photo characters, or the original drawn (cartoon) ones. */
-  style?: 'realistic' | 'cartoon'
-  /** Built-ins: where the photo came from (see resources/characters/CREDITS.md). */
-  credit?: string
   createdAt?: number
   updatedAt?: number
 }
@@ -202,8 +198,6 @@ export interface Settings {
   standOnWindows: boolean
   /** Dropping a character near the top makes it hang, near a side makes it climb. */
   adaptOnDrop: boolean
-  /** Also list the drawn (cartoon) built-in characters in the library. */
-  showCartoon: boolean
   hiddenBuiltIns: string[]
 }
 

@@ -91,9 +91,8 @@ export interface ScreenlyApi {
 
 export const ASSET_SCHEME = 'screenly'
 
-/** URL of an image belonging to any character: bundled built-ins or the user's own. */
-export function characterAssetUrl(def: { id: string; builtIn: boolean; updatedAt?: number }, path: string): string {
-  if (def.builtIn) return `${ASSET_SCHEME}://builtin/${encodeURIComponent(def.id)}/${path.split('/').map(encodeURIComponent).join('/')}`
+/** URL of an image belonging to one of the user's own characters. */
+export function characterAssetUrl(def: { id: string; updatedAt?: number }, path: string): string {
   return assetUrl(def.id, path, def.updatedAt)
 }
 
