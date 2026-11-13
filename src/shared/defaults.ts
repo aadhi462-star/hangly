@@ -116,6 +116,9 @@ export const DEFAULT_SETTINGS: Settings = {
   avoidOverlap: true,
   standOnWindows: true,
   adaptOnDrop: true,
+  dayNight: true,
+  lively: true,
+  onboarded: false,
   hiddenBuiltIns: []
 }
 
@@ -186,7 +189,9 @@ export function newInstance(def: CharacterDefinition, displayId: number, workWid
     hidden: false,
     muted: false,
     addedAt: Date.now(),
-    lastFed: 0
+    lastFed: 0,
+    affection: 50,
+    affectionAt: Date.now()
   }
 }
 

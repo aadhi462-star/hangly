@@ -90,7 +90,9 @@ function migrate(raw: Partial<AppState>): AppState {
   const custom = profiles.filter((p) => p && !p.builtIn)
   return {
     version: 1,
-    settings: sanitizeSettings(mergeKnown(base.settings, raw.settings ?? {})),
+    settings: sanitizeSettings(
+      mergeKnown(base.settings, { ...(raw.settings ?? {}), onboarded: raw.settings?.onboarded ?? (Array.isArray(raw.instances) && raw.instances.length > 0) })
+    ),
     instances: Array.isArray(raw.instances) ? raw.instances.map(sanitizeInstance) : [],
     customCharacters: Array.isArray(raw.customCharacters) ? raw.customCharacters : [],
     profiles: [...structuredClone(BUILT_IN_PROFILES), ...custom],
@@ -183,6 +185,9 @@ export function sanitizeInstance(i: CharacterInstance): CharacterInstance {
   if (h.anchorFrom !== 'screen' && h.anchorFrom !== 'menubar') h.anchorFrom = 'screen'
   if (!BEHAVIOURS.includes(i.behaviour)) i.behaviour = 'stationary'
   if (typeof i.lastFed !== 'number' || !Number.isFinite(i.lastFed)) i.lastFed = 0
+  if (typeof i.affection !== 'number' || !Number.isFinite(i.affection)) i.affection = 50
+  i.affection = clamp(i.affection, 0, 100)
+  if (typeof i.affectionAt !== 'number' || !Number.isFinite(i.affectionAt)) i.affectionAt = Date.now()
   if (!Number.isFinite(i.x)) i.x = 100
   if (!Number.isFinite(i.y)) i.y = 0
   return i

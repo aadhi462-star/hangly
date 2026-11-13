@@ -100,6 +100,12 @@ export interface CharacterDefinition {
   /** Relative path to a preview image (image characters only). */
   preview?: string
   description?: string
+  /**
+   * Single-image walkers: where the legs start, as a fraction of the image height
+   * (0.4–0.95). The strip below is split into front and back legs that swing while
+   * walking. Unset or 0 = off.
+   */
+  legLine?: number
   createdAt?: number
   updatedAt?: number
 }
@@ -164,6 +170,9 @@ export interface CharacterInstance {
   addedAt: number
   /** When it last finished eating (ms since epoch), 0 if never. */
   lastFed: number
+  /** Affection 0..100 at `affectionAt`; see shared/mood.ts for how it fades. */
+  affection: number
+  affectionAt: number
 }
 
 export interface Shortcuts {
@@ -200,6 +209,12 @@ export interface Settings {
   standOnWindows: boolean
   /** Dropping a character near the top makes it hang, near a side makes it climb. */
   adaptOnDrop: boolean
+  /** Characters get sleepy in the evening and lively in the morning. */
+  dayNight: boolean
+  /** Characters look at the cursor, startle at fast movements and greet each other. */
+  lively: boolean
+  /** The first-run welcome tour has been completed or dismissed. */
+  onboarded: boolean
   hiddenBuiltIns: string[]
 }
 

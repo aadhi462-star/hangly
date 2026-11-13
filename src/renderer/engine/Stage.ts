@@ -1,5 +1,6 @@
 import { Application, Container } from 'pixi.js'
 import type { Food } from '../../shared/food'
+import { nightness } from '../../shared/mood'
 import type { CharacterDefinition, CharacterInstance, InstanceStatus, Settings } from '../../shared/types'
 import { Entity, type AssetResolver, type Surface, type World } from './Entity'
 
@@ -11,6 +12,8 @@ export interface StageOptions {
   onHoverChange?: (hovering: boolean) => void
   /** Called right after a drag ends, with that character's final status. */
   onDragEnd?: (s: InstanceStatus) => void
+  /** Affection changed by petting, clicks or meals. */
+  onAffection?: (instanceId: string, delta: number) => void
   /** A character finished eating. */
   onFed?: (instanceId: string) => void
   /** Ask the owner to switch a character's behaviour after a drop. */
@@ -37,6 +40,11 @@ export class Stage {
   private lastStatus = ''
   private ready = false
   private surfaces: Surface[] = []
+  /** Smoothed cursor speed (px/s) so characters can startle at fast movements. */
+  private cursorSpeed = 0
+  private cursorAt = 0
+  private night = 0
+  private nightCheck = 0
   private destroyed = false
 
   constructor(private opts: StageOptions) {}
@@ -126,6 +134,10 @@ export class Stage {
       entities: [...this.entities.values()],
       surfaces: s.standOnWindows ? this.surfaces : [],
       onFed: this.opts.onFed ? (e) => this.opts.onFed!(e.id) : null,
+      onAffection: this.opts.onAffection ? (e, d) => this.opts.onAffection!(e.id, d) : null,
+      night: s.dayNight ? this.night : 0,
+      lively: s.lively,
+      cursorSpeed: performance.now() - this.cursorAt < 120 ? this.cursorSpeed : 0,
       adapt: s.adaptOnDrop && this.opts.onAdapt ? (e, b, x, y) => this.opts.onAdapt!(e.id, b, x, y) : null
     }
   }
@@ -137,6 +149,11 @@ export class Stage {
 
   private tick(dt: number): void {
     if (!this.settings) return
+    this.nightCheck -= dt
+    if (this.nightCheck <= 0) {
+      this.night = nightness()
+      this.nightCheck = 60
+    }
     const w = this.world_()
     for (const e of this.entities.values()) e.update(dt, w)
 
@@ -185,6 +202,12 @@ export class Stage {
   /** Update the cursor (canvas px, or null when it is off this canvas). Returns true if over a character. */
   setCursor(p: { x: number; y: number } | null): boolean {
     const prev = this.cursor
+    const now = performance.now()
+    if (p && prev && this.cursorAt) {
+      const dt = Math.max(0.008, (now - this.cursorAt) / 1000)
+      this.cursorSpeed = this.cursorSpeed * 0.6 + (Math.hypot(p.x - prev.x, p.y - prev.y) / dt) * 0.4
+    }
+    this.cursorAt = now
     this.cursor = p
     if (this.press) return true
     if (!p) {

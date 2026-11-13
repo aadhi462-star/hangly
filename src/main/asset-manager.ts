@@ -102,6 +102,7 @@ export function sanitizeDefinition(raw: CharacterDefinition, id: string): Charac
     animations,
     hanging: mergeKnown(structuredClone(DEFAULT_HANGING), raw.hanging),
     preview: typeof raw.preview === 'string' && FILE_RE.test(raw.preview) ? raw.preview : undefined,
+    legLine: typeof raw.legLine === 'number' && raw.legLine > 0 ? clamp(raw.legLine, 0.4, 0.95, 0.72) : undefined,
     description: typeof raw.description === 'string' ? raw.description.slice(0, 280) : undefined,
     createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : now,
     updatedAt: now

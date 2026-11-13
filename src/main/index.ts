@@ -2,6 +2,7 @@ import { BrowserWindow, Menu, app, globalShortcut, ipcMain, nativeTheme, shell, 
 import { join } from 'node:path'
 import { BUILT_IN_CHARACTERS, DEFAULT_HANGING, newInstance } from '../shared/defaults'
 import { canEat, foodsFor } from '../shared/food'
+import { moodOf } from '../shared/mood'
 import type { Align, DeepPartial, Page, Result, SaveCharacterRequest } from '../shared/ipc'
 import type { CharacterInstance, HangingConfig, InstanceStatus, Settings } from '../shared/types'
 import {
@@ -509,6 +510,15 @@ function registerIpc(): void {
       { label: 'Remove from desktop', click: () => store.mutate((s) => void (s.instances = s.instances.filter((v) => v.instanceId !== i.instanceId))) }
     ]).popup({ window: BrowserWindow.fromWebContents(e.sender) ?? undefined })
   })
+  ipcMain.on('overlay:affection', (e, id: unknown, delta: unknown) => {
+    if (!overlays.isOverlay(e.sender) || typeof delta !== 'number' || !Number.isFinite(delta)) return
+    store.mutate((s) => {
+      const t = s.instances.find((v) => v.instanceId === str(id))
+      if (!t) return
+      t.affection = Math.max(0, Math.min(100, moodOf(t) + Math.max(-10, Math.min(10, delta))))
+      t.affectionAt = Date.now()
+    })
+  })
   ipcMain.on('overlay:fed', (e, id: unknown) => {
     if (!overlays.isOverlay(e.sender)) return
     store.mutate((s) => {
@@ -570,6 +580,8 @@ void app.whenReady().then(() => {
 
   tray.create()
   applyShortcuts()
+  // Start watching window positions now (not only after the first change).
+  applySurfaces()
   setInterval(checkSchedule, 30_000)
   checkSchedule()
   openControl()

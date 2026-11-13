@@ -23,7 +23,8 @@ const stage = new Stage({
     if (!stage.isPressing()) stage.app.canvas.style.cursor = h ? 'grab' : ''
   },
   onAdapt: (id, behaviour, x, y) => api.overlay.adapt(id, behaviour, x, y),
-  onFed: (id) => api.overlay.fed(id)
+  onFed: (id) => api.overlay.fed(id),
+  onAffection: (id, delta) => api.overlay.affection(id, delta)
 })
 
 /** App windows in this overlay's canvas coordinates (global → window-local). */

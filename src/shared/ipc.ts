@@ -87,6 +87,8 @@ export interface ScreenlyApi {
     onSurfaces(cb: (rects: { id: number; x: number; y: number; w: number; h: number }[]) => void): () => void
     /** Show the character's right-click menu (built and handled in main). */
     menu(instanceId: string): void
+    /** Petting, clicks and meals change a character's affection. */
+    affection(instanceId: string, delta: number): void
     /** Tell main a character finished eating. */
     fed(instanceId: string): void
     /** Ask main to switch a character's behaviour after a drop (validated in main). */

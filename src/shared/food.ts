@@ -34,7 +34,7 @@ export const FOODS: Record<string, Food> = {
 
 /** What each built-in character eats, favourite first. */
 const DIETS: Record<string, string[]> = {
-  cat: ['fish', 'chicken'],
+  cat: ['fish', 'chicken', 'mouse'],
   puppy: ['bone', 'meat'],
   rabbit: ['carrot', 'grass'],
   penguin: ['fish'],

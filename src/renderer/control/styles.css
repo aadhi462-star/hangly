@@ -373,3 +373,18 @@ button.frame { cursor: default; }
 /* Dark characters (spider, bat) need a lighter backdrop to read clearly. */
 .char-art.hang, .char-art.fly { background: radial-gradient(70% 70% at 50% 45%, color-mix(in srgb, var(--muted) 22%, transparent), transparent 75%), radial-gradient(110% 80% at 50% 100%, var(--accent-soft), transparent 62%), linear-gradient(180deg, var(--panel-2), var(--panel)); }
 .char-art.fly .art-stage { inset: 30px 40px 30px; }
+
+.status-banner { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; margin: 40px auto -26px; max-width: 1056px; padding: 10px 14px; border-radius: 12px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); font-weight: 500; animation: page-in 0.2s ease-out; }
+.status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.35; } }
+
+.modal.welcome { width: 520px; padding: 26px 28px; gap: 14px; }
+.welcome h2 { font-size: 22px; }
+.welcome-dots { display: flex; gap: 6px; }
+.welcome-dots span { width: 22px; height: 4px; border-radius: 2px; background: var(--line); }
+.welcome-dots span.on { background: var(--accent); }
+.welcome-picks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.welcome-pick { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--panel-2); font-weight: 600; font-size: 12.5px; }
+.welcome-pick:hover { border-color: var(--accent); transform: translateY(-2px); }
+.welcome-pick.on { border-color: var(--accent); background: var(--accent-soft); }
+.welcome-art { font-size: 40px; text-align: center; padding: 18px 0; background: var(--panel-2); border-radius: 12px; letter-spacing: 6px; }

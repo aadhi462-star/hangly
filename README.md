@@ -6,6 +6,24 @@
 
 Screenly puts animated animals and your own characters on your Mac. They walk along the bottom of the screen, hang from the top edge on a thread, swing, fly between windows and climb the screen edges. The overlay is click-through, so the characters never get in the way of your work.
 
+## Install
+
+1. Open `Screenly-1.0.0-arm64.dmg` (build it with `npm run dist:mac`, output in `dist/`) and drag **Screenly** into **Applications**.
+2. The build isn't signed with an Apple Developer ID yet, so the first time, **right-click Screenly → Open → Open**. After that it opens normally.
+3. A short welcome tour shows the basics; the paw icon in the menu bar has everything else.
+
+Requires macOS 12 or later on Apple silicon (an Intel or universal build is one setting away, see Packaging).
+
+## What it does
+
+- **Characters on your desktop**: walk along the Dock, hang from the top of the screen, fly, climb the edges, stand still.
+- **They live in your desktop**: land on and walk along window tops, ride along when you move a window, fall when it closes, and now and then hop up onto the window you're using.
+- **They react**: look at your cursor, get startled by fast movements, greet each other, birds perch on other characters.
+- **Mood and rhythm**: petting, clicks and meals make them happier; neglect makes them bored. They get sleepy in the evening and lively in the morning (your Mac's clock).
+- **Feeding**: each animal has its own diet; food lands nearby, prey (flies, mice, crickets) moves and must be caught, bites come out of the food, crumbs fall. Hungry animals think about their favourite food.
+- **Character Studio**: turn any image into a character: AI background removal (local), magic wand, brushes, crop, timeline animation, a hanging editor, and swinging legs for single-image walkers.
+- **Clear state**: a banner, pause badges on characters and a dimmed menu bar paw whenever characters are paused, hidden or in focus mode.
+
 ## Requirements
 
 - macOS 12 or later (Apple silicon or Intel)
@@ -19,10 +37,25 @@ npm run dev        # Vite dev server + Electron with hot reload
 npm run build      # compile main, preload and renderer into out/
 npm start          # run the built app
 npm run typecheck  # TypeScript, no emit
+npm test           # Vitest: behaviour, feeding, validation and file-safety tests
 npm run dist:mac   # build a .dmg / .zip with electron-builder
 ```
 
-`dist:mac` produces an unsigned build. For distribution, set up an Apple Developer ID certificate and notarisation (`CSC_LINK`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`); see the electron-builder code-signing docs.
+`dist:mac` builds the window helper, the app and `dist/Screenly-<version>-arm64.dmg` (plus a `.zip`).
+
+### Signing and notarising (removes the "unidentified developer" warning)
+
+The build is already configured for it (hardened runtime, entitlements in `build/`). It needs an Apple Developer Program membership ($99/year), then:
+
+1. In Xcode → Settings → Accounts, create a **Developer ID Application** certificate (it lands in your keychain; electron-builder finds it automatically).
+2. Create an app-specific password at appleid.apple.com.
+3. Build with notarisation:
+
+```bash
+APPLE_ID="you@example.com" APPLE_APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx" APPLE_TEAM_ID="ABCDE12345" npx electron-builder --mac -c.mac.notarize=true
+```
+
+For Intel Macs too, change `arch` in `package.json → build.mac.target` to `["universal"]`.
 
 ## Using it
 
@@ -109,10 +142,9 @@ For real limb movement, provide several frames: a GIF or animated WebP, a sprite
 
 ## Not implemented yet (honest list)
 
-- **Body-part segmentation and skeletal rigging** (layers, bones, pivots) and **AI-assisted segmentation**. The Studio says so in its UI; these are the next big pieces.
+- **Full skeletal rigging** (layers, bones, pivots) and **AI-assisted part splitting**. Single-image walkers get swinging legs from a leg line instead.
 - **WebGPU acceleration for the AI cut-out.** It's switched off (`USE_WEBGPU` in `studio/aiMatte.ts`) because on some Macs the model exceeds the GPU's shader limits; the CPU path takes a few seconds per image.
 - **Dragging a character from one display to another.** Moving between displays works from the Customise panel.
-- **Characters interacting with each other.** They do avoid crowding on the ground.
 - **Recorded sound effects.** The current sounds are short synthesised effects, and sound is off by default.
 - Settings use a small validated JSON store rather than `electron-store`, and the Studio uses Canvas instead of `sharp`. This avoids native modules and ESM-only packaging issues, and needs no extra install.
 

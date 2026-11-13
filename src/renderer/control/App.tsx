@@ -7,8 +7,9 @@ import { Home } from './pages/Home'
 import { Library } from './pages/Library'
 import { Presets } from './pages/Presets'
 import { Settings } from './pages/Settings'
-import { useUi } from './store'
+import { api, useUi } from './store'
 import { Icon } from './ui'
+import { Welcome } from './Welcome'
 
 const NAV: { page: Page; label: string; icon: Parameters<typeof Icon>[0]['name'] }[] = [
   { page: 'home', label: 'Home', icon: 'home' },
@@ -59,6 +60,7 @@ export function App(): ReactNode {
       </nav>
       <main className="content">
         <div className="drag-region" />
+        <StatusBanner />
         {page === 'home' && <Home />}
         {page === 'library' && <Library />}
         {/* The Studio stays mounted so switching pages never loses unsaved work. */}
@@ -71,6 +73,7 @@ export function App(): ReactNode {
       </main>
       {editing && <Customize instanceId={editing} />}
       <TextDialog />
+      {!app.settings.onboarded && <Welcome />}
       <div className="toasts" role="status" aria-live="polite">
         {toasts.map((t) => (
           <div key={t.id} className={`toast ${t.tone}`}>
@@ -89,6 +92,33 @@ export function App(): ReactNode {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+/** A clear notice whenever characters can't move on their own, with a one-click fix. */
+function StatusBanner(): ReactNode {
+  const s = useUi((st) => st.app?.settings)
+  if (!s) return null
+  const focus = s.focus.active
+  if (!s.pausedAll && !focus && !s.hiddenAll) return null
+  const text = s.hiddenAll
+    ? 'All characters are hidden.'
+    : focus
+      ? 'Focus mode is on: characters are paused and quiet.'
+      : 'All characters are paused. They stay still until you resume them.'
+  return (
+    <div className="status-banner" role="status">
+      <span className="status-dot" aria-hidden />
+      <span className="grow">{text}</span>
+      <button
+        className="btn small primary"
+        onClick={() =>
+          void api.updateSettings(s.hiddenAll ? { hiddenAll: false } : focus ? { focus: { active: false } } : { pausedAll: false })
+        }
+      >
+        {s.hiddenAll ? 'Show all' : focus ? 'End focus' : 'Resume all'}
+      </button>
     </div>
   )
 }

@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { BEHAVIOUR_LABELS } from '../../shared/defaults'
 import type { Behaviour } from '../../shared/types'
 import { HangingControls } from '../control/pages/HangingControls'
-import { Section, Segmented, Slider } from '../control/ui'
+import { Section, Segmented, Slider, Toggle } from '../control/ui'
 import { ImageEditor } from './ImageEditor'
 import { LivePreview } from './LivePreview'
 import { behaviourSupport, type StudioDoc } from './model'
@@ -48,6 +48,16 @@ export function BehaviourStep({ doc, version, pixels, onChange }: Props): ReactN
           onChange={(facing) => { doc.facing = facing; onChange() }}
         />
       </Section>
+
+      {doc.behaviours.includes('walk') && (doc.sequences.walk?.frameIds.length ?? 0) < 2 && (
+        <Section title="Walking legs" description="With a single image, the bottom of the picture is split into front and back legs that swing as it walks. Set the line just above where the legs begin.">
+          <Toggle label="Swing the legs while walking" checked={doc.legLine > 0} onChange={(on) => { doc.legLine = on ? 0.72 : 0; onChange() }} />
+          {doc.legLine > 0 && (
+            <Slider label="Leg line" value={doc.legLine} min={0.4} max={0.95} step={0.01} format={(v) => `${Math.round(v * 100)}% down`} onChange={(v) => { doc.legLine = v; onChange() }} />
+          )}
+          <p className="muted small">Try it in the next step with the Walking behaviour.</p>
+        </Section>
+      )}
 
       <Section title="Behaviours" description="Choose everything this character can do. Only behaviours your frames support are offered.">
         <div className="behaviour-grid">

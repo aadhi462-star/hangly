@@ -52,6 +52,18 @@ export function Settings(): ReactNode {
           onChange={(standOnWindows) => set({ standOnWindows })}
         />
         <Toggle
+          label="Lively characters"
+          hint="They look at your cursor, get startled by fast movements, greet each other, perch on one another and sometimes visit the window you're using."
+          checked={s.lively}
+          onChange={(lively) => set({ lively })}
+        />
+        <Toggle
+          label="Follow day and night"
+          hint="Sleepier and slower in the evening, lively in the morning, using your Mac's clock."
+          checked={s.dayNight}
+          onChange={(dayNight) => set({ dayNight })}
+        />
+        <Toggle
           label="Adapt to where you drop them"
           hint="Drop near the top edge to hang, against a side to climb, anywhere else to stand on what's below."
           checked={s.adaptOnDrop}
@@ -124,6 +136,7 @@ export function Settings(): ReactNode {
         <Toggle label="Open at login" checked={s.launchAtLogin} onChange={(launchAtLogin) => set({ launchAtLogin })} />
         <div className="row gap">
           <button className="btn" onClick={() => void api.openDataFolder()}>Open data folder</button>
+          <button className="btn" onClick={() => void api.updateSettings({ onboarded: false })}>Show welcome tour</button>
           <button className="btn danger" onClick={() => void api.quit()}>Quit Screenly</button>
         </div>
       </Section>

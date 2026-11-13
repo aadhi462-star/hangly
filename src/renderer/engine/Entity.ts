@@ -1,5 +1,6 @@
-import { ColorMatrixFilter, Container, Graphics, Sprite, Text, type Texture } from 'pixi.js'
+import { ColorMatrixFilter, Container, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js'
 import { foodsFor, isHungry, type Food } from '../../shared/food'
+import { moodOf } from '../../shared/mood'
 import type {
   Behaviour,
   CharState,
@@ -32,6 +33,14 @@ export interface World {
   surfaces: Surface[]
   /** Called after a character finishes eating (to remember when it was fed). */
   onFed: ((e: Entity) => void) | null
+  /** Affection changed (petting +, clicks +, meals +). */
+  onAffection: ((e: Entity, delta: number) => void) | null
+  /** 0 by day … 1 at night (characters get sleepy). */
+  night: number
+  /** Look at the cursor, startle, greet each other, visit the active window. */
+  lively: boolean
+  /** Cursor speed in px/s (0 when it isn't moving). */
+  cursorSpeed: number
   /** Switch behaviour to suit the spot a character was dropped on. */
   adapt: ((e: Entity, behaviour: Behaviour, x: number, y: number) => void) | null
 }
@@ -83,6 +92,8 @@ export class Entity {
   private readonly body = new Container()
   private readonly shadow = new Graphics()
   private readonly fx = new Graphics()
+  /** Small "paused" pill shown above a frozen character. */
+  private readonly pauseBadge = new Graphics()
   readonly thread = new Graphics()
   /** The food being offered, drawn in work-area space (added to the stage by Stage). */
   readonly foodView = new Container()
@@ -100,6 +111,13 @@ export class Entity {
   private dragVx = 0
   private squashT = -1
   private squashAmt = 0
+  // Liveliness: startle and greeting cooldowns, window visits, perching on others.
+  private startleCd = 0
+  private greetCd = rand(5, 15)
+  private visitWindow: number | null = null
+  private perchOn: Entity | null = null
+  private moodCache = 50
+  private moodAt = 0
   private dust: { x: number; vx: number; t: number }[] = []
   private bubbleIn = rand(20, 60)
   private gfx: Graphics | null = null
@@ -168,6 +186,10 @@ export class Entity {
   private unit = 1
   private size = { w: 40, h: 40 }
 
+  /** Leg rig for single-image walkers: body top plus two swinging leg strips. */
+  private legs: { key: Texture; top: Texture; left: Texture; right: Texture; back: Sprite; front: Sprite } | null = null
+  /** The full current frame (the sprite may show only its top part while walking). */
+  private fullTex: Texture | null = null
   private seqs = new Map<SequenceName, LoadedSeq>()
   private seqName: SequenceName | null = null
   private seqClock = 0
@@ -176,7 +198,7 @@ export class Entity {
   constructor(inst: CharacterInstance, def: CharacterDefinition, private resolve: AssetResolver) {
     this.inst = inst
     this.def = def
-    this.root.addChild(this.shadow, this.body, this.fx, this.bubble)
+    this.root.addChild(this.shadow, this.body, this.fx, this.bubble, this.pauseBadge)
     this.bubble.visible = false
     this.setDefinition(def)
   }
@@ -187,6 +209,8 @@ export class Entity {
 
   setDefinition(def: CharacterDefinition): void {
     this.def = def
+    this.dropLegs()
+    this.fullTex = null
     this.body.removeChildren()
     this.gfx?.destroy()
     this.sprite?.destroy()
@@ -235,7 +259,26 @@ export class Entity {
   }
 
   private idleDur(w: World, lo = 0.5, hi = 1.5): number {
-    return this.inst.movement.idleSeconds * w.profile.idle * rand(lo, hi)
+    // Sleepy at night and when bored: idle and nap for longer.
+    const slow = 1 + w.night * 1.2 + (this.mood() < 25 ? 0.6 : 0)
+    return this.inst.movement.idleSeconds * w.profile.idle * rand(lo, hi) * slow
+  }
+
+  /** Current affection (cached for a few seconds; it changes slowly). */
+  mood(): number {
+    const now = Date.now()
+    if (now - this.moodAt > 5000) {
+      this.moodCache = moodOf(this.inst, now)
+      this.moodAt = now
+    }
+    return this.moodCache
+  }
+
+  /** How eager it is to move: the user's setting, lowered at night and when bored, raised when happy. */
+  private activity(w: World): number {
+    const m = this.mood()
+    const moodK = m >= 75 ? 1.2 : m < 25 ? 0.6 : 1
+    return clamp(this.inst.movement.activity * w.profile.activity * (1 - w.night * 0.6) * moodK, 0, 1)
   }
 
   private place(w: World): void {
@@ -332,12 +375,14 @@ export class Entity {
       this.advanceGait(dt)
       this.maybeIdleSound(dt, w)
       this.tickHungerBubble(dt)
+      this.updateLively(dt, w)
     } else if (!this.dragging) {
       // Paused characters don't act on their own, but still obey physics after
       // you move them: dropped ones fall and land, hanging ones swing to rest.
       this.settle(dt, w)
     }
     this.render(w, frozen ? 0 : dt)
+    this.drawPauseBadge(frozen && !this.dragging)
   }
 
   private measure(w: World): void {
@@ -346,7 +391,7 @@ export class Entity {
       this.unit = h / this.rig.height
       this.size = { w: this.rig.width * this.unit, h }
     } else {
-      const tex = this.sprite?.texture
+      const tex = this.fullTex ?? this.sprite?.texture
       const ratio = tex && tex.height > 1 ? tex.width / tex.height : 1
       this.unit = 1
       this.size = { w: h * ratio, h }
@@ -378,8 +423,117 @@ export class Entity {
     for (let k = 0; k < 8; k++) this.dust.push({ x: rand(-0.3, 0.3) * this.size.w, vx: (k % 2 ? 1 : -1) * rand(30, 90) * (0.6 + strength), t: 0 })
   }
 
+  /** Y of the top of this character (for others to perch on), work-area px. */
+  headTop(): number {
+    const b = this.inst.behaviour
+    if (b === 'hang') return this.y - this.size.h * this.inst.hanging.attachY
+    if (b === 'fly' || this.rig?.origin === 'center') return this.y - this.size.h / 2
+    return this.y - this.size.h
+  }
+
+  private perchHeight(): number {
+    return this.rig ? this.rig.groundOffset * this.unit : this.size.h / 2
+  }
+
+  /** Cursor awareness, startles and greetings. Runs every frame while not paused. */
+  private updateLively(dt: number, w: World): void {
+    if (!w.lively || this.dragging || this.state === 'eating' || this.food) return
+    this.startleCd -= dt
+    this.greetCd -= dt
+    const c = w.cursor
+    if (c && this.startleCd <= 0 && w.cursorSpeed > 2600) {
+      const near = Math.hypot(c.x - this.x, c.y - (this.y - this.size.h / 2)) < this.size.w * 0.8 + 70
+      if (near) {
+        this.startleCd = 4
+        this.startle(c, w)
+        return
+      }
+    }
+    // Idle walkers turn to face a cursor that comes close.
+    const calm = this.state === 'idle' || this.state === 'sitting' || this.state === 'looking'
+    if (c && calm && (this.inst.behaviour === 'walk' || this.inst.behaviour === 'stationary') && Math.abs(c.x - this.x) < 260 && Math.abs(c.y - this.y) < 260) {
+      if (this.inst.movement.direction === 'auto') this.dir = c.x >= this.x ? 1 : -1
+    }
+    if (this.greetCd <= 0) {
+      this.greetCd = rand(6, 12)
+      this.tryGreet(w)
+    }
+  }
+
+  private startle(c: { x: number; y: number }, w: World): void {
+    const away = this.x >= c.x ? 1 : -1
+    switch (this.inst.behaviour) {
+      case 'walk':
+        this.jumpT = 0
+        this.dir = away
+        this.setState('running', rand(0.8, 1.4))
+        break
+      case 'fly':
+        this.vx = away * this.inst.movement.flySpeed * 2.5
+        this.vy = -this.inst.movement.flySpeed
+        this.perched = false
+        this.perchOn = null
+        this.pickFlightTarget(w)
+        this.setState('flying', rand(2, 4))
+        break
+      case 'hang':
+        this.targetLen = Math.max(8, this.len * 0.35)
+        this.setState('ascending', 99)
+        break
+      case 'climb':
+        this.vdir = c.y > this.y ? -1 : 1
+        this.setState('climbing', 1.5)
+        break
+      default:
+        this.jumpT = 0
+    }
+  }
+
+  /** Two characters close together on the same level say hello. */
+  private tryGreet(w: World): void {
+    const ground = (e: Entity): boolean => e.inst.behaviour === 'walk' || e.inst.behaviour === 'stationary'
+    if (!ground(this) || this.state === 'sleeping') return
+    const other = w.entities.find(
+      (e) => e !== this && ground(e) && !e.inst.hidden && !e.inst.paused && Math.abs(e.x - this.x) < (this.size.w + e.size.w) / 2 + 50 && Math.abs(e.y - this.y) < 30
+    )
+    if (!other) return
+    for (const [a, b] of [[this, other], [other, this]] as const) {
+      if (a.state === 'eating' || a.isDragging()) continue
+      a.dir = b.x >= a.x ? 1 : -1
+      a.jumpT = 0
+      a.greetCd = rand(20, 40)
+      a.setState('interacting', 1.4)
+      a.showBubble('👋', 1.8)
+    }
+  }
+
+  /** Short-lived emoji bubble above the character. */
+  showBubble(emoji: string, seconds: number): void {
+    this.bubble.removeChildren().forEach((ch) => ch.destroy())
+    const g = new Graphics()
+    g.roundRect(-22, -22, 44, 36, 16).fill({ color: 0xffffff, alpha: 0.95 }).stroke({ width: 1, color: 0x000000, alpha: 0.12 })
+    const t = new Text({ text: emoji, style: { fontSize: 20 } })
+    t.anchor.set(0.5)
+    t.position.set(0, -4)
+    this.bubble.addChild(g, t)
+    this.bubble.visible = true
+    this.bubbleT = 4 - seconds
+  }
+
   setHover(on: boolean): void {
     this.hovered = on
+  }
+
+  private drawPauseBadge(show: boolean): void {
+    this.pauseBadge.clear()
+    this.pauseBadge.visible = show
+    if (!show) return
+    const hang = this.inst.behaviour === 'hang'
+    const x = hang ? this.size.w * 0.55 : 0
+    const y = hang ? this.size.h * 0.15 : -this.size.h - 14
+    this.pauseBadge.roundRect(x - 13, y - 10, 26, 20, 10).fill({ color: 0x1d1d1f, alpha: 0.78 })
+    this.pauseBadge.roundRect(x - 5, y - 5, 3.5, 10, 1).fill(0xffffff)
+    this.pauseBadge.roundRect(x + 1.5, y - 5, 3.5, 10, 1).fill(0xffffff)
   }
 
   /** Physics only (no behaviour): used while paused. */
@@ -441,7 +595,10 @@ export class Entity {
       const target = this.landingBelow(w, this.x, this.y)
       this.vy += GRAVITY * dt
       this.y += this.vy * dt
-      if (this.y >= target.y) {
+      this.x = clamp(this.x + this.vx * dt, 0, w.w)
+      // Only land on the way down (a jump rises past ledges first).
+      if (this.vy >= 0 && this.y >= target.y) {
+        this.vx = 0
         this.y = target.y
         // A hard landing squashes the body and kicks up a little dust.
         if (this.vy > 320) this.impact(Math.min(1, this.vy / 1400))
@@ -485,6 +642,7 @@ export class Entity {
     let maxX = w.w * mv.areaMax - half
 
     if (this.gravity(dt, w)) return
+    if (this.updateVisit(dt, w)) return
     // On a window: its top edge is the walkway, unless this walk ends by stepping off.
     const ledge = this.standingOn !== null ? w.surfaces.find((v) => v.id === this.standingOn) : undefined
     if (ledge && !this.willStepOff) {
@@ -522,7 +680,7 @@ export class Entity {
 
   private nextGroundState(w: World, canWalk: boolean): void {
     const mv = this.inst.movement
-    const a = clamp(mv.activity * w.profile.activity, 0, 1)
+    const a = this.activity(w)
     canWalk = canWalk && mv.autoMovement && !mv.fixedPosition
     if (canWalk && !mv.randomMovement) {
       this.startWalking(w, 'walking', 9999)
@@ -533,7 +691,7 @@ export class Entity {
       ['looking', 0.12],
       ['sitting', 0.16],
       ['stretching', 0.05],
-      ['sleeping', 0.03 + 0.1 * (1 - a)]
+      ['sleeping', 0.03 + 0.1 * (1 - a) + 0.45 * w.night]
     ]
     if (canWalk) options.push(['walking', 0.1 + 0.5 * a], ['running', 0.12 * a])
     // flyers and hangers have no sitting / stretching pose
@@ -574,6 +732,41 @@ export class Entity {
     }
     this.willStepOff = this.standingOn !== null && Math.random() < 0.3
     this.setState(s, dur)
+    // Now and then, head for the window you're using and hop up onto it.
+    const front = w.surfaces[0]
+    if (w.lively && front && this.standingOn !== front.id && Math.random() < 0.22) {
+      const rise = this.y - (front.y - this.footOffset())
+      if (rise > 30 && rise < 520 && this.topVisible(w, front, front.x + front.w / 2)) this.visitWindow = front.id
+    }
+  }
+
+  /** Walk under the target window, then jump onto its top edge. Returns true while handling it. */
+  private updateVisit(dt: number, w: World): boolean {
+    if (this.visitWindow === null || this.state === 'eating' || this.food) return false
+    const s = w.surfaces.find((v) => v.id === this.visitWindow)
+    if (!s || this.standingOn === s.id) {
+      this.visitWindow = null
+      return false
+    }
+    const half = this.size.w / 2
+    const tx = clamp(this.x, s.x + half + 10, s.x + s.w - half - 10)
+    const dx = tx - this.x
+    if (Math.abs(dx) > 12) {
+      this.dir = dx > 0 ? 1 : -1
+      const want: CharState = Math.abs(dx) > 260 ? 'running' : 'walking'
+      if (this.state !== want) this.setState(want, 999)
+      const mv = this.inst.movement
+      this.x += this.dir * (want === 'running' ? mv.runSpeed : mv.walkSpeed) * w.profile.speed * dt
+      return true
+    }
+    // Jump: just enough speed to clear the ledge.
+    const rise = this.y - (s.y - this.footOffset()) + 24
+    this.vy = -Math.sqrt(2 * GRAVITY * Math.max(40, rise))
+    this.vx = this.dir * 40
+    this.standingOn = null
+    this.visitWindow = null
+    this.setState('landing', 99)
+    return true
   }
 
   // ---------- hanging ----------
@@ -581,7 +774,7 @@ export class Entity {
   private updateHang(dt: number, w: World): void {
     const hc = this.inst.hanging
     const mv = this.inst.movement
-    const a = clamp(mv.activity * w.profile.activity, 0, 1)
+    const a = this.activity(w)
     const rest = this.maxLen(w, hc.length)
     const speedMul = w.profile.speed
 
@@ -661,12 +854,21 @@ export class Entity {
 
   private updateFly(dt: number, w: World): void {
     const mv = this.inst.movement
-    const a = clamp(mv.activity * w.profile.activity, 0, 1)
+    const a = this.activity(w)
     const ground = w.h - (this.rig?.groundOffset ?? 0) * this.unit - (this.rig ? 0 : this.size.h / 2)
 
     if (this.perched) {
-      this.y = ground
+      const p = this.perchOn
+      if (p && (p.inst.hidden || p.isDragging() || !w.entities.includes(p))) {
+        // The character it sat on moved away: take off.
+        this.perchOn = null
+        this.stateTime = this.stateDur
+      } else if (p) {
+        this.x = p.x
+        this.y = p.headTop() - this.perchHeight()
+      } else this.y = ground
       if (this.stateTime >= this.stateDur && mv.autoMovement && !mv.fixedPosition) {
+        this.perchOn = null
         this.perched = false
         this.pickFlightTarget(w)
         this.ty = Math.min(this.ty, w.h * 0.5)
@@ -707,8 +909,13 @@ export class Entity {
     this.y += this.vy * dt
     if (Math.abs(this.vx) > 8) this.dir = this.vx > 0 ? 1 : -1
 
-    if (this.state === 'landing' && (dist < 4 || this.y >= ground)) {
-      this.y = ground
+    if (this.perchOn && this.state === 'landing') {
+      // Keep aiming at the (possibly moving) character it wants to sit on.
+      this.tx = this.perchOn.x
+      this.ty = this.perchOn.headTop() - this.perchHeight()
+    }
+    if (this.state === 'landing' && (dist < 4 || (!this.perchOn && this.y >= ground))) {
+      this.y = this.perchOn ? this.ty : ground
       this.vx = this.vy = 0
       this.perched = true
       this.setState('idle', this.idleDur(w, 1, 2.5))
@@ -719,6 +926,13 @@ export class Entity {
       if (this.state === 'flying' && mv.randomMovement && Math.random() < 0.12 + 0.3 * (1 - a)) {
         this.tx = rand(40, w.w - 40)
         this.ty = ground
+        // Sometimes land on another character instead (birds on Spider-Man…).
+        const hosts = w.lively ? w.entities.filter((e) => e !== this && e.inst.behaviour !== 'fly' && !e.inst.hidden && e.headTop() > 40) : []
+        if (hosts.length && Math.random() < 0.4) {
+          this.perchOn = hosts[Math.floor(Math.random() * hosts.length)]
+          this.tx = this.perchOn.x
+          this.ty = this.perchOn.headTop() - this.perchHeight()
+        }
         this.setState('landing', 30)
       } else {
         this.pickFlightTarget(w)
@@ -751,7 +965,7 @@ export class Entity {
       }
     }
     if (this.stateTime >= this.stateDur) {
-      const a = clamp(mv.activity * w.profile.activity, 0, 1)
+      const a = this.activity(w)
       if (mv.autoMovement && !mv.fixedPosition && (this.state !== 'climbing' || Math.random() < 0.3) && Math.random() < 0.3 + 0.6 * a) {
         if (mv.direction === 'auto' && Math.random() < 0.4) this.vdir = this.vdir === 1 ? -1 : 1
         this.setState('climbing', rand(1.5, 5))
@@ -1088,6 +1302,8 @@ export class Entity {
       this.foodEmoji.visible = true
     }, 1600)
     w.onFed?.(this)
+    w.onAffection?.(this, 8)
+    this.moodAt = 0
     const s = this.def.rig ? RIG_SOUNDS[this.def.rig] : undefined
     if (s?.idle) this.sound(s.idle, w)
     const canSit = this.rig?.origin === 'feet' && (this.inst.behaviour === 'walk' || this.inst.behaviour === 'stationary')
@@ -1129,6 +1345,8 @@ export class Entity {
 
   interact(w: World, kind: 'click' | 'pet' = 'click'): void {
     if (!this.inst.interaction.clickToInteract || this.dragging) return
+    w.onAffection?.(this, kind === 'pet' ? 3 : 1)
+    this.moodAt = 0
     this.hearts.push({ x: rand(-6, 6), y: -this.size.h * 0.9, t: 0 })
     if (this.inst.behaviour === 'hang') this.omega += (Math.random() < 0.5 ? -1 : 1) * 1.6
     else if (this.inst.behaviour === 'fly' && !this.perched) {
@@ -1243,7 +1461,7 @@ export class Entity {
         t: this.animT,
         phase: this.phase,
         blink: this.blinkT > 0,
-        look: state === 'looking' ? Math.sin(this.animT * 1.4) : 0,
+        look: state === 'looking' ? Math.sin(this.animT * 1.4) : w.lively && w.cursor ? clamp(((w.cursor.x - this.x) / 300) * (sx < 0 ? -1 : 1), -1, 1) : 0,
         effort: 1
       })
     } else if (this.sprite) {
@@ -1356,7 +1574,7 @@ export class Entity {
     let idx = 0
     while (idx < seq.durations.length - 1 && t >= seq.durations[idx]) t -= seq.durations[idx++]
     const tex = seq.textures[idx]
-    if (sprite.texture !== tex) sprite.texture = tex
+    this.fullTex = tex
 
     // Anchor the image where this behaviour holds it.
     const b = this.inst.behaviour
@@ -1369,6 +1587,9 @@ export class Entity {
     // A single still image gets procedural life: bob, tilt and breathing.
     const animated = seq.textures.length > 1
     const k = animated ? 0.3 : 1
+    const walking = this.state === 'walking' || this.state === 'running'
+    // Single-image walkers with a leg line get swinging legs instead of a gliding sway.
+    const legMode = walking && b === 'walk' && !animated && (this.def.legLine ?? 0) > 0
     let bob = 0
     let tilt = 0
     let breathe = 1
@@ -1376,8 +1597,8 @@ export class Entity {
       case 'walking':
       case 'running': {
         const amp = this.state === 'running' ? 0.06 : 0.035
-        bob = -Math.abs(Math.sin(this.phase)) * this.size.h * amp * k
-        tilt = Math.sin(this.phase) * 0.05 * k
+        bob = -Math.abs(Math.sin(this.phase)) * this.size.h * amp * k * (legMode ? 0.4 : 1)
+        tilt = legMode ? 0 : Math.sin(this.phase) * 0.05 * k
         break
       }
       case 'climbing':
@@ -1399,10 +1620,70 @@ export class Entity {
       default:
         breathe = 1 + Math.sin(this.animT * 2.2) * 0.012
     }
-    sprite.position.set(0, bob)
-    sprite.rotation = tilt
-    sprite.scale.set(scale, scale * breathe)
+
+    if (legMode) {
+      const rig = this.legRig(tex)
+      const f = tex.frame
+      const legH = rig.left.frame.height
+      const hipY = bob - legH * scale
+      if (sprite.texture !== rig.top) sprite.texture = rig.top
+      sprite.position.set(0, hipY)
+      sprite.rotation = 0
+      sprite.scale.set(scale, scale)
+      const swing = Math.sin(this.phase) * (this.state === 'running' ? 0.38 : 0.22)
+      const lw = rig.left.frame.width
+      const leftX = (lw / 2 - f.width / 2) * scale
+      const rightX = (lw + rig.right.frame.width / 2 - f.width / 2) * scale
+      for (const [leg, x, r] of [[rig.back, leftX, swing], [rig.front, rightX, -swing]] as const) {
+        leg.visible = true
+        leg.position.set(x, hipY - 1)
+        leg.rotation = r
+        leg.scale.set(scale, scale)
+      }
+    } else {
+      if (this.legs) {
+        this.legs.back.visible = false
+        this.legs.front.visible = false
+      }
+      if (sprite.texture !== tex) sprite.texture = tex
+      sprite.position.set(0, bob)
+      sprite.rotation = tilt
+      sprite.scale.set(scale, scale * breathe)
+    }
     this.body.scale.set(sx, sy * this.squashY())
+  }
+
+  /** Builds (once per frame texture) the body-top and two leg-strip textures. */
+  private legRig(tex: Texture): NonNullable<Entity['legs']> {
+    if (this.legs && this.legs.key === tex) return this.legs
+    this.dropLegs()
+    const f = tex.frame
+    const hip = Math.round(f.height * clamp(this.def.legLine ?? 0.72, 0.4, 0.95))
+    const half = Math.floor(f.width / 2)
+    const part = (x: number, y: number, w: number, h: number): Texture => new Texture({ source: tex.source, frame: new Rectangle(f.x + x, f.y + y, w, h) })
+    const top = part(0, 0, f.width, hip)
+    const left = part(0, hip, half, f.height - hip)
+    const right = part(half, hip, f.width - half, f.height - hip)
+    const back = new Sprite(left)
+    const front = new Sprite(right)
+    back.anchor.set(0.5, 0)
+    front.anchor.set(0.5, 0)
+    // The back leg sits behind the body, the front leg in front of it.
+    this.body.addChildAt(back, 0)
+    this.body.addChild(front)
+    this.legs = { key: tex, top, left, right, back, front }
+    return this.legs
+  }
+
+  private dropLegs(): void {
+    if (!this.legs) return
+    const l = this.legs
+    l.back.destroy()
+    l.front.destroy()
+    // Destroy the sub-textures only; the image itself is shared and cached.
+    for (const t of [l.top, l.left, l.right]) t.destroy(false)
+    this.legs = null
+    if (this.sprite && this.fullTex) this.sprite.texture = this.fullTex
   }
 
   /** Vertical squash factor for image characters (rigs apply it in render). */

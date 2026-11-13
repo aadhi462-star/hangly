@@ -36,6 +36,8 @@ export interface StudioDoc {
   baseSize: number
   defaultSpeed: number
   facing: 'left' | 'right'
+  /** Swinging legs for single-image walkers (0 = off); see CharacterDefinition.legLine. */
+  legLine: number
   hanging: HangingConfig
   createdAt?: number
 }
@@ -66,6 +68,7 @@ export function emptyDoc(): StudioDoc {
     baseSize: 120,
     defaultSpeed: 60,
     facing: 'right',
+    legLine: 0.72,
     hanging: { ...DEFAULT_HANGING, attachY: 0.02 }
   }
 }
@@ -180,6 +183,7 @@ export async function buildSaveRequest(doc: StudioDoc): Promise<SaveCharacterReq
       facing: doc.facing,
       animations,
       hanging: doc.hanging,
+      legLine: doc.legLine || undefined,
       preview,
       createdAt: doc.createdAt
     },
@@ -198,6 +202,7 @@ export async function loadDoc(def: CharacterDefinition, read: (path: string) => 
     baseSize: def.baseSize,
     defaultSpeed: def.defaultSpeed,
     facing: def.facing,
+    legLine: def.legLine ?? 0,
     hanging: { ...DEFAULT_HANGING, ...def.hanging },
     createdAt: def.createdAt
   }
@@ -255,6 +260,7 @@ export function previewDefinition(doc: StudioDoc, version: number): { def: Chara
       facing: doc.facing,
       animations,
       hanging: doc.hanging,
+      legLine: doc.legLine || undefined,
       updatedAt: version
     },
     urls

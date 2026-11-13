@@ -5,6 +5,9 @@ import { Stage } from '../engine/Stage'
 import { releaseTextures } from '../engine/textures'
 import { previewDefinition, type StudioDoc } from './model'
 
+/** The preview always behaves like daytime, so walking can be tested at any hour. */
+const PREVIEW_SETTINGS = { ...DEFAULT_SETTINGS, fps: 60 as const, dayNight: false, lively: false }
+
 export type Backdrop = 'light' | 'dark' | 'sunset' | 'meadow'
 
 interface Props {
@@ -43,7 +46,8 @@ export function LivePreview(p: Props): ReactNode {
     defaultBehaviour: p.behaviour,
     facing: p.doc.facing,
     baseSize: p.doc.baseSize,
-    hanging: p.doc.hanging
+    hanging: p.doc.hanging,
+    legLine: p.doc.legLine || undefined
   })
 
   useEffect(() => {
@@ -103,13 +107,15 @@ export function LivePreview(p: Props): ReactNode {
         flySpeed: Math.max(60, p.doc.defaultSpeed * 2) * p.speed,
         animSpeed: p.animSpeed,
         idleSeconds: 2.5,
-        activity: 0.85
+        activity: 0.85,
+        // When you pick Walking to test it, keep walking instead of idling at random.
+        randomMovement: p.behaviour !== 'walk'
       },
       hanging: { ...p.doc.hanging, length: Math.min(p.doc.hanging.length, el.clientHeight * 0.45) }
     }
     inst.current = i
-    s.sync([i], new Map([[def.id, def]]), { ...DEFAULT_SETTINGS, fps: 60 })
-  }, [ready, preview, p.behaviour, p.scale, p.opacity, p.speed, p.animSpeed, p.doc.hanging, p.doc.defaultSpeed, p.doc.facing, p.doc.baseSize])
+    s.sync([i], new Map([[def.id, def]]), PREVIEW_SETTINGS)
+  }, [ready, preview, p.behaviour, p.scale, p.opacity, p.speed, p.animSpeed, p.doc.hanging, p.doc.defaultSpeed, p.doc.facing, p.doc.baseSize, p.doc.legLine])
 
   useEffect(() => {
     posVersion.current++
@@ -117,7 +123,7 @@ export function LivePreview(p: Props): ReactNode {
     const s = stage.current
     if (s && inst.current && preview.def.animations?.idle) {
       const def = liveDef()
-      s.sync([inst.current], new Map([[def.id, def]]), { ...DEFAULT_SETTINGS, fps: 60 })
+      s.sync([inst.current], new Map([[def.id, def]]), PREVIEW_SETTINGS)
     }
   }, [p.resetKey])
 

@@ -13,7 +13,8 @@ export interface TrayActions {
 }
 
 /** A paw print, rasterised at runtime so the app ships no binary icon for the tray. */
-function pawIcon(): NativeImage {
+/** `alpha` < 1 draws a dimmed paw (used while everything is paused). */
+function pawIcon(alpha = 1): NativeImage {
   const size = 36 // 18pt @2x
   const buf = Buffer.alloc(size * size * 4)
   const pads: [number, number, number][] = [
@@ -35,7 +36,7 @@ function pawIcon(): NativeImage {
         }
       }
       const o = (y * size + x) * 4
-      buf[o + 3] = Math.round((cover / 16) * 255) // BGRA, black with alpha
+      buf[o + 3] = Math.round((cover / 16) * 255 * alpha) // BGRA, black with alpha
     }
   }
   const img = nativeImage.createFromBitmap(buf, { width: size, height: size, scaleFactor: 2 })
@@ -45,6 +46,7 @@ function pawIcon(): NativeImage {
 
 export class TrayManager {
   private tray: Tray | null = null
+  private dimmed = false
 
   constructor(private actions: TrayActions) {}
 
@@ -59,9 +61,16 @@ export class TrayManager {
     const s = store.state.settings
     const count = store.state.instances.length
     const a = this.actions
+    // A dimmed paw shows at a glance that characters are paused (or in focus mode).
+    const dim = s.pausedAll || s.focus.active
+    if (dim !== this.dimmed) {
+      this.dimmed = dim
+      this.tray.setImage(pawIcon(dim ? 0.4 : 1))
+    }
+    this.tray.setToolTip(s.focus.active ? 'Screenly — focus mode' : s.pausedAll ? 'Screenly — paused' : 'Screenly')
     this.tray.setContextMenu(
       Menu.buildFromTemplate([
-        { label: `Screenly — ${count} active`, enabled: false },
+        { label: `Screenly — ${count} active${s.pausedAll ? ' (paused)' : ''}`, enabled: false },
         { type: 'separator' },
         { label: 'Open Screenly', accelerator: s.shortcuts.openPanel, click: () => a.open() },
         { label: 'Open Character Studio', click: () => a.open('studio') },

@@ -63,6 +63,7 @@ const api: ScreenlyApi = {
     onSurfaces: (cb) => on('overlay:surfaces', cb),
     onFeed: (cb) => on('overlay:feed', cb),
     fed: (id) => ipcRenderer.send('overlay:fed', id),
+    affection: (id, delta) => ipcRenderer.send('overlay:affection', id, delta),
     menu: (id) => ipcRenderer.send('overlay:menu', id),
     adapt: (id, behaviour, x, y) => ipcRenderer.send('overlay:adapt', id, behaviour, x, y),
     setInteractive: (v) => ipcRenderer.send('overlay:interactive', v),

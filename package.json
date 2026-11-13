@@ -1,8 +1,8 @@
 {
   "name": "screenly",
   "productName": "Screenly",
-  "version": "0.1.0",
-  "description": "A little life on your desktop.",
+  "version": "1.0.0",
+  "description": "Screenly \u2014 a little life on your desktop.",
   "main": "out/main/index.js",
   "type": "commonjs",
   "license": "UNLICENSED",
@@ -12,9 +12,11 @@
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build:native": "swiftc -O -target arm64-apple-macos12 native/window-surfaces.swift -o /tmp/ws-arm64 && swiftc -O -target x86_64-apple-macos12 native/window-surfaces.swift -o /tmp/ws-x64 && lipo -create /tmp/ws-arm64 /tmp/ws-x64 -output resources/window-surfaces",
-    "dist:mac": "npm run build:native && electron-vite build && electron-builder --mac"
+    "dist:mac": "npm run build:native && electron-vite build && electron-builder --mac",
+    "test": "vitest run"
   },
   "devDependencies": {
+    "@huggingface/transformers": "^4.3.2",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
@@ -22,16 +24,15 @@
     "electron": "^45.3.1",
     "electron-builder": "^26.18.0",
     "electron-vite": "^6.0.0",
-    "typescript": "^7.0.2",
-    "vite": "^8.3.8"
-  },
-  "dependencies": {
-    "@huggingface/transformers": "^4.3.2",
     "pixi.js": "^8.23.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0",
     "zustand": "^5.1.0"
   },
+  "dependencies": {},
   "build": {
     "appId": "com.screenly.app",
     "productName": "Screenly",
@@ -41,12 +42,28 @@
     ],
     "mac": {
       "category": "public.app-category.entertainment",
+      "icon": "build/icon.icns",
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
       ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
       "extendInfo": {
-        "LSUIElement": false
+        "LSUIElement": false,
+        "NSHumanReadableCopyright": "Screenly"
       }
     },
     "extraResources": [
@@ -54,6 +71,31 @@
         "from": "resources/window-surfaces",
         "to": "window-surfaces"
       }
-    ]
+    ],
+    "copyright": "Copyright \u00a9 2026",
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "dmg": {
+      "title": "Screenly ${version}",
+      "iconSize": 112,
+      "window": {
+        "width": 560,
+        "height": 380
+      },
+      "contents": [
+        {
+          "x": 150,
+          "y": 190
+        },
+        {
+          "x": 410,
+          "y": 190,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
   }
 }
