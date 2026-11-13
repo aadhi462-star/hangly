@@ -157,21 +157,29 @@ input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; width: 16p
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
 .grid.small { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .card.compact { align-items: center; text-align: center; gap: 8px; }
-.char-art { position: relative; display: flex; align-items: center; justify-content: center; height: 176px; padding: 18px; border-radius: 12px; overflow: hidden;
-  background: radial-gradient(120% 90% at 50% 100%, var(--accent-soft), transparent 65%), linear-gradient(180deg, var(--panel-2), var(--panel)); }
-.thumb.fill { width: 100%; height: 100%; }
-.thumb.fill img { filter: drop-shadow(0 6px 10px rgb(0 0 0 / 22%)); }
-/* Walkers stand on a ground line; hangers hang from the top edge on a thread; flyers float. */
-.char-art.walk, .char-art.stationary { align-items: flex-end; padding-bottom: 22px; }
-.char-art.walk::after, .char-art.stationary::after { content: ''; position: absolute; left: 14%; right: 14%; bottom: 20px; height: 1px; background: linear-gradient(90deg, transparent, var(--line), transparent); }
-.char-art.hang { align-items: flex-start; padding-top: 30px; }
-.char-art.hang .thumb.fill { height: 100%; }
+/* Library card art: the character is fitted inside a fixed frame. */
+.char-art { position: relative; height: 208px; border-radius: 12px; overflow: hidden;
+  background: radial-gradient(110% 80% at 50% 100%, var(--accent-soft), transparent 62%), linear-gradient(180deg, var(--panel-2), var(--panel)); }
+.art-stage { position: absolute; inset: 22px 26px 26px; display: flex; align-items: center; justify-content: center; }
+.art-stage .thumb.fill { width: 100%; height: 100%; display: block; overflow: visible; }
+.art-stage .thumb.fill img { width: 100%; height: 100%; object-fit: contain; object-position: center; filter: drop-shadow(0 8px 12px rgb(0 0 0 / 22%)); image-rendering: auto; }
+/* Walkers stand on a ground line; hangers hang from a thread at the top; flyers float. */
+.char-art.walk .art-stage, .char-art.stationary .art-stage { inset: 20px 26px 30px; }
+.char-art.walk .thumb.fill img, .char-art.stationary .thumb.fill img { object-position: center bottom; }
+.char-art.walk::after, .char-art.stationary::after { content: ''; position: absolute; left: 12%; right: 12%; bottom: 29px; height: 1px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--muted) 45%, transparent), transparent); }
+.char-art.hang .art-stage { inset: 34px 30px 16px; }
 .char-art.hang .thumb.fill img { object-position: center top; }
-.art-thread { position: absolute; left: 50%; top: 0; width: 1.5px; height: 32px; transform: translateX(-50%); background: linear-gradient(var(--muted), color-mix(in srgb, var(--muted) 60%, transparent)); }
+.art-thread { position: absolute; left: 50%; top: 0; width: 1.5px; height: 36px; transform: translateX(-50%); background: linear-gradient(color-mix(in srgb, var(--muted) 30%, transparent), var(--muted)); }
 .char-art.fly .thumb.fill img { animation: bob 3.2s ease-in-out infinite; }
 @keyframes bob { 50% { transform: translateY(-6px); } }
-.badge { font-size: 11px; font-weight: 600; background: var(--accent); color: var(--accent-ink); padding: 1px 8px; border-radius: 10px; }
-.char-art .badge { position: absolute; top: 8px; right: 8px; }
+.char-art .badge { position: absolute; top: 10px; right: 10px; box-shadow: 0 2px 8px rgb(0 0 0 / 20%); }
+/* Secondary actions float over the art and appear on hover or keyboard focus. */
+.card-tools { position: absolute; top: 8px; left: 8px; display: flex; gap: 4px; opacity: 0; transform: translateY(-4px); transition: opacity 0.15s ease, transform 0.15s ease; }
+.char-card:hover .card-tools, .card-tools:focus-within { opacity: 1; transform: none; }
+.tool-btn { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; border: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 88%, transparent); backdrop-filter: blur(6px); color: var(--text); }
+.tool-btn:hover { border-color: var(--accent); color: var(--accent); }
+.tool-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+.tool-btn .icon { width: 15px; height: 15px; }
 .char-meta { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .desc { color: var(--muted); }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
@@ -181,7 +189,6 @@ input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; width: 16p
 .chip-btn > button:hover { background: var(--panel-2); }
 .card-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .thumb { display: grid; place-items: center; flex: none; overflow: hidden; }
-.char-art .thumb { overflow: visible; }
 .thumb img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 2px 3px rgb(0 0 0 / 15%)); }
 .thumb-empty { width: 60%; height: 60%; border-radius: 50%; background: var(--panel-2); }
 .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
@@ -346,8 +353,23 @@ button.frame { cursor: default; }
 .card, .mini-card, .table-row, .btn, .icon-btn, .nav-item, .food-btn { transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.15s ease, border-color 0.15s ease; }
 .card.char-card:hover, .card.compact:hover, .card.profile:hover { transform: translateY(-3px); box-shadow: 0 10px 28px rgb(0 0 0 / 14%); }
 .btn:active, .icon-btn:active, .food-btn:active { transform: scale(0.96); }
-.char-card:hover .char-art .thumb img, .card.compact:hover .thumb img { animation: alive 1.6s ease-in-out infinite; }
+.char-card:hover .art-stage .thumb img, .card.compact:hover .thumb img { animation: alive 1.6s ease-in-out infinite; }
 @keyframes alive { 0%, 100% { transform: translateY(0) rotate(0); } 30% { transform: translateY(-5px) rotate(-1.5deg); } 60% { transform: translateY(0) rotate(1deg); } }
 .hungry { color: var(--accent); font-weight: 600; }
 .page { animation: page-in 0.22s ease-out; }
 @keyframes page-in { from { opacity: 0; transform: translateY(6px); } }
+
+/* Library cards: equal heights, aligned actions. */
+.grid:has(.char-card) { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 18px; }
+.char-card { padding: 12px 12px 14px; gap: 12px; }
+.char-meta { gap: 6px; padding: 0 4px; }
+.char-title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.char-title h3 { font-size: 16px; }
+.kind { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); white-space: nowrap; }
+.char-card .desc { color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.9em; margin: 0; }
+.char-card .chips { margin-top: 2px; }
+.char-card .card-actions { margin-top: auto; display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; padding: 0 4px; }
+.char-card .card-actions .btn { justify-content: center; height: 34px; }
+/* Dark characters (spider, bat) need a lighter backdrop to read clearly. */
+.char-art.hang, .char-art.fly { background: radial-gradient(70% 70% at 50% 45%, color-mix(in srgb, var(--muted) 22%, transparent), transparent 75%), radial-gradient(110% 80% at 50% 100%, var(--accent-soft), transparent 62%), linear-gradient(180deg, var(--panel-2), var(--panel)); }
+.char-art.fly .art-stage { inset: 30px 40px 30px; }

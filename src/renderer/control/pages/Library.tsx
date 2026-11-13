@@ -86,13 +86,39 @@ export function Library(): ReactNode {
               <article className={`card char-card${hidden ? ' dimmed' : ''}`} key={def.id}>
                 <div className={`char-art ${def.defaultBehaviour}`}>
                   {def.defaultBehaviour === 'hang' && (def.hanging?.threadWidth ?? 1) > 0 && <span className="art-thread" aria-hidden />}
-                  <Thumb def={def} fill />
-                  {count > 0 && <span className="badge">{count} active</span>}
+                  <div className="art-stage">
+                    <Thumb def={def} fill />
+                  </div>
+                  {count > 0 && <span className="badge">{count} on desktop</span>}
+                  <div className="card-tools">
+                    {def.builtIn ? (
+                      <button className="tool-btn" title={hidden ? 'Show in library' : 'Hide from library'} onClick={() => void api.setBuiltInHidden(def.id, !hidden)}>
+                        <Icon name={hidden ? 'eye' : 'eyeoff'} />
+                      </button>
+                    ) : (
+                      <>
+                        <button className="tool-btn" title="Edit in Studio" onClick={() => openStudio(def.id)}><Icon name="edit" /></button>
+                        <button className="tool-btn" title="Duplicate" onClick={() => void run(api.duplicateCustomCharacter(def.id), 'Duplicated')}><Icon name="copy" /></button>
+                        <button className="tool-btn" title="Export" onClick={() => void run(api.exportCharacter(def.id), 'Exported')}><Icon name="export" /></button>
+                        <button
+                          className="tool-btn danger"
+                          title="Delete"
+                          onClick={() => {
+                            if (confirm(`Delete “${def.name}”? Its files will be removed from Screenly. This cannot be undone.`)) void run(api.deleteCustomCharacter(def.id), 'Deleted')
+                          }}
+                        >
+                          <Icon name="trash" />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div className="char-meta">
-                  <h3>{def.name}</h3>
-                  <p className="muted small">{def.builtIn ? def.category[0].toUpperCase() + def.category.slice(1) : 'Custom character'}</p>
-                  {def.description && <p className="small desc">{def.description}</p>}
+                  <div className="char-title">
+                    <h3>{def.name}</h3>
+                    <span className="kind">{def.builtIn ? def.category[0].toUpperCase() + def.category.slice(1) : 'Your character'}</span>
+                  </div>
+                  <p className="small desc">{def.description ?? 'Made in Character Studio from your own image.'}</p>
                   <div className="chips">
                     {def.behaviours.map((b) => (
                       <span className="chip" key={b}>{BEHAVIOUR_LABELS[b]}</span>
@@ -100,30 +126,10 @@ export function Library(): ReactNode {
                   </div>
                 </div>
                 <div className="card-actions">
-                  <button className="btn primary small" onClick={() => void run(api.addInstance(def.id), `${def.name} is on your desktop`)}>
-                    Add to desktop
+                  <button className="btn primary" onClick={() => void run(api.addInstance(def.id), `${def.name} is on your desktop`)}>
+                    <Icon name="plus" /> Add to desktop
                   </button>
-                  <button className="btn small" onClick={() => void customise(def)}>Customise</button>
-                  {def.builtIn ? (
-                    <button className="icon-btn" title={hidden ? 'Show in library' : 'Hide from library'} onClick={() => void api.setBuiltInHidden(def.id, !hidden)}>
-                      <Icon name={hidden ? 'eye' : 'eyeoff'} />
-                    </button>
-                  ) : (
-                    <>
-                      <button className="icon-btn" title="Edit in Studio" onClick={() => openStudio(def.id)}><Icon name="edit" /></button>
-                      <button className="icon-btn" title="Duplicate" onClick={() => void run(api.duplicateCustomCharacter(def.id), 'Duplicated')}><Icon name="copy" /></button>
-                      <button className="icon-btn" title="Export" onClick={() => void run(api.exportCharacter(def.id), 'Exported')}><Icon name="export" /></button>
-                      <button
-                        className="icon-btn danger"
-                        title="Delete"
-                        onClick={() => {
-                          if (confirm(`Delete “${def.name}”? Its files will be removed from Screenly. This cannot be undone.`)) void run(api.deleteCustomCharacter(def.id), 'Deleted')
-                        }}
-                      >
-                        <Icon name="trash" />
-                      </button>
-                    </>
-                  )}
+                  <button className="btn" onClick={() => void customise(def)}>Customise</button>
                 </div>
               </article>
             )

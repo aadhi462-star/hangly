@@ -64,9 +64,9 @@ export const BUILT_IN_CHARACTERS: CharacterDefinition[] = [
     hanging: { ...DEFAULT_HANGING, attachX: 0.5, attachY: 0.12 }
   },
   {
-    id: 'bat', name: 'Echo the Bat', category: 'hanging', builtIn: true, kind: 'procedural', rig: 'bat',
-    behaviours: b('hang', 'fly'), defaultBehaviour: 'hang', baseSize: 56, defaultOpacity: 1, defaultSpeed: 140,
-    facing: 'right', description: 'Hangs upside down from the top edge, or flutters around.',
+    id: 'bat', name: 'Echo the Bat', category: 'flying', builtIn: true, kind: 'procedural', rig: 'bat',
+    behaviours: b('fly', 'hang'), defaultBehaviour: 'fly', baseSize: 56, defaultOpacity: 1, defaultSpeed: 140,
+    facing: 'right', description: 'Flutters around your screen, or hangs upside down from the top edge.',
     hanging: { ...DEFAULT_HANGING, length: 0, descentDistance: 0, attachY: 0, amplitude: 8, threadWidth: 0 }
   },
   {

@@ -1,4 +1,4 @@
-import { Application, Graphics } from 'pixi.js'
+import { Application, Container, Graphics } from 'pixi.js'
 import { useEffect, useState } from 'react'
 import { characterAssetUrl } from '../../shared/ipc'
 import type { CharacterDefinition, RigId } from '../../shared/types'
@@ -21,22 +21,27 @@ function renderer(): Promise<Application> {
   return appPromise
 }
 
-function rigThumb(rig: RigId): Promise<string> {
-  let p = cache.get(rig)
+function rigThumb(rig: RigId, pose: 'idle' | 'hanging' | 'flying'): Promise<string> {
+  const key = `${rig}:${pose}`
+  let p = cache.get(key)
   if (!p) {
     p = (async () => {
       const app = await renderer()
       const g = new Graphics()
       const r = RIGS[rig]
-      const scale = 150 / Math.max(r.height, r.width)
-      g.scale.set(scale)
-      const state = r.origin === 'hang' ? 'hanging' : 'idle'
+      // Render large (≈420px, at 2× density) so previews stay crisp on big cards and Retina screens.
+      // The scale goes on a wrapper: extract renders its target at the target's own local scale.
+      const scale = 420 / Math.max(r.height, r.width)
+      const state = pose
       r.draw(g, { state, t: 0.4, phase: 0.8, blink: false, look: 0, effort: 1 })
-      const url = await app.renderer.extract.base64({ target: g, resolution: 2 })
-      g.destroy()
+      const wrap = new Container()
+      wrap.addChild(g)
+      g.scale.set(scale)
+      const url = await app.renderer.extract.base64({ target: wrap, resolution: 2 })
+      wrap.destroy({ children: true })
       return url
     })()
-    cache.set(rig, p)
+    cache.set(key, p)
   }
   return p
 }
@@ -46,7 +51,11 @@ export function useThumb(def: CharacterDefinition | undefined): string | null {
   useEffect(() => {
     let alive = true
     if (!def) return
-    if (def.kind === 'procedural' && def.rig) void rigThumb(def.rig).then((u) => alive && setUrl(u))
+    if (def.kind === 'procedural' && def.rig) {
+      // Show the pose of the character's default behaviour (e.g. the bat in flight).
+      const pose = def.defaultBehaviour === 'fly' ? 'flying' : def.defaultBehaviour === 'hang' ? 'hanging' : 'idle'
+      void rigThumb(def.rig, pose).then((u) => alive && setUrl(u))
+    }
     else {
       const p = def.preview ?? def.animations?.idle?.frames[0]?.file
       setUrl(p ? characterAssetUrl(def, p) : null)
@@ -54,6 +63,6 @@ export function useThumb(def: CharacterDefinition | undefined): string | null {
     return () => {
       alive = false
     }
-  }, [def?.id, def?.updatedAt, def?.rig])
+  }, [def?.id, def?.updatedAt, def?.rig, def?.defaultBehaviour])
   return url
 }
