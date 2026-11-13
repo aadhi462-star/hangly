@@ -1,7 +1,7 @@
 import { BrowserWindow, Menu, app, globalShortcut, ipcMain, nativeTheme, shell, type IpcMainInvokeEvent } from 'electron'
 import { join } from 'node:path'
 import { BUILT_IN_CHARACTERS, DEFAULT_HANGING, newInstance } from '../shared/defaults'
-import { foodsFor } from '../shared/food'
+import { canEat, foodsFor } from '../shared/food'
 import type { Align, DeepPartial, Page, Result, SaveCharacterRequest } from '../shared/ipc'
 import type { CharacterInstance, HangingConfig, InstanceStatus, Settings } from '../shared/types'
 import {
@@ -188,6 +188,7 @@ function feed(instanceId: string, foodId?: string): Result {
   if (!i || !def) return { ok: false, error: 'Not found' }
   const diet = foodsFor(def)
   const food = foodId ? diet.find((f) => f.id === foodId) : diet[0]
+  if (!canEat(def)) return { ok: false, error: `${def.name} doesn't need feeding.` }
   if (!food) return { ok: false, error: `${def.name} doesn't eat that.` }
   if (i.hidden || store.state.settings.hiddenAll) return { ok: false, error: `${def.name} is hidden.` }
   overlays.broadcast('overlay:feed', { instanceId, foodId: food.id })
@@ -195,7 +196,10 @@ function feed(instanceId: string, foodId?: string): Result {
 }
 
 function feedAll(): void {
-  for (const i of store.state.instances) feed(i.instanceId)
+  for (const i of store.state.instances) {
+    const def = findDef(i.characterId)
+    if (def && canEat(def)) feed(i.instanceId)
+  }
 }
 
 function checkSchedule(): void {
@@ -488,7 +492,9 @@ function registerIpc(): void {
     Menu.buildFromTemplate([
       { label: def.name, enabled: false },
       { type: 'separator' },
-      { label: 'Feed', submenu: foodsFor(def).map((f) => ({ label: `${f.emoji}  ${f.name}`, click: () => feed(i.instanceId, f.id) })) },
+      ...(canEat(def)
+        ? [{ label: 'Feed', submenu: foodsFor(def).map((f) => ({ label: `${f.emoji}  ${f.name}`, click: () => feed(i.instanceId, f.id) })) }]
+        : []),
       { label: i.paused ? 'Resume' : 'Pause', click: () => set({ paused: !i.paused }) },
       {
         label: 'Customise…',

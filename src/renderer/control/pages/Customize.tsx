@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { BEHAVIOUR_LABELS, STATE_LABELS } from '../../../shared/defaults'
-import { foodsFor } from '../../../shared/food'
+import { canEat, foodsFor } from '../../../shared/food'
 import type { DeepPartial } from '../../../shared/ipc'
 import type { Behaviour, CharacterInstance } from '../../../shared/types'
 import { api, findCharacter, removeWithUndo, run, useUi } from '../store'
@@ -91,6 +91,7 @@ export function Customize({ instanceId }: { instanceId: string }): ReactNode {
           </div>
         </div>
 
+        {canEat(def) && (
         <div className="feed-row">
           <span className="field-label">Feed</span>
           {foodsFor(def).map((f) => (
@@ -98,8 +99,9 @@ export function Customize({ instanceId }: { instanceId: string }): ReactNode {
               <span aria-hidden>{f.emoji}</span> {f.name}
             </button>
           ))}
-          <span className="muted small">Tip: right-click it on the desktop to feed its favourite.</span>
+          <span className="muted small">Tip: right-click it on the desktop for its food menu.</span>
         </div>
+        )}
 
         <nav className="tabs">
           {tabs.map((t) => (

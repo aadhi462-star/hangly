@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { BEHAVIOUR_LABELS, STATE_LABELS } from '../../../shared/defaults'
-import { foodsFor } from '../../../shared/food'
+import { canEat, foodsFor } from '../../../shared/food'
 import type { Behaviour } from '../../../shared/types'
 import { api, fedLabel, findCharacter, removeWithUndo, run, useUi } from '../store'
 import { Empty, Icon, PageHeader, Slider, Thumb, pct } from '../ui'
@@ -58,8 +58,12 @@ export function Active(): ReactNode {
                     {inst.paused || app.settings.pausedAll ? 'Paused' : inst.hidden ? 'Hidden' : st ? STATE_LABELS[st.state] : '…'}
                     {' · '}x {Math.round(st?.x ?? inst.x)}, y {Math.round(st?.y ?? inst.y)}
                     {displays.length > 1 && display ? ` · ${display.label}` : ''}
-                    {' · '}
-                    <span className={fedLabel(inst) === 'Hungry' ? 'hungry' : ''}>{fedLabel(inst)}</span>
+                    {def && canEat(def) && (
+                      <>
+                        {' · '}
+                        <span className={fedLabel(inst) === 'Hungry' ? 'hungry' : ''}>{fedLabel(inst)}</span>
+                      </>
+                    )}
                   </span>
                 </div>
                 <select

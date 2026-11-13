@@ -54,9 +54,11 @@ export function isHungry(i: { lastFed?: number; addedAt: number }, now = Date.no
   return now - Math.max(i.lastFed ?? 0, i.addedAt) > HUNGER_MS
 }
 
-/** Your own characters can be offered anything from this general menu. */
-const GENERAL = ['cookie', 'apple', 'meat', 'fish', 'banana', 'carrot']
-
+/** Only built-in animals eat; your own characters (e.g. Spider-Man) have no food rules. */
 export function foodsFor(def: Pick<CharacterDefinition, 'id' | 'builtIn'>): Food[] {
-  return (def.builtIn ? (DIETS[def.id] ?? GENERAL) : GENERAL).map((id) => FOODS[id])
+  return (def.builtIn ? (DIETS[def.id] ?? []) : []).map((id) => FOODS[id])
+}
+
+export function canEat(def: Pick<CharacterDefinition, 'id' | 'builtIn'>): boolean {
+  return foodsFor(def).length > 0
 }
