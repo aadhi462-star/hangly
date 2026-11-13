@@ -500,6 +500,10 @@ void app.whenReady().then(() => {
     tray.refresh()
   })
 
+  // Characters whose definition no longer exists (e.g. a removed built-in) can't be shown: drop them.
+  const orphans = store.state.instances.filter((i) => !findDef(i.characterId))
+  if (orphans.length) store.mutate((s) => void (s.instances = s.instances.filter((i) => findDef(i.characterId))))
+
   overlays.syncDisplays()
   watchDisplays(() => {
     overlays.syncDisplays()
