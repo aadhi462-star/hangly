@@ -1,4 +1,4 @@
-import { Texture } from 'pixi.js'
+import { ImageSource, Texture } from 'pixi.js'
 
 const cache = new Map<string, Promise<Texture>>()
 
@@ -11,7 +11,9 @@ export function loadTexture(url: string): Promise<Texture> {
       const res = await fetch(url, { mode: 'cors' })
       if (!res.ok) throw new Error(`HTTP ${res.status} for ${url.slice(0, 80)}`)
       const bitmap = await createImageBitmap(await res.blob(), { premultiplyAlpha: 'premultiply' })
-      return Texture.from(bitmap)
+      // Mipmaps + linear filtering keep downscaled artwork smooth instead of grainy.
+      const source = new ImageSource({ resource: bitmap, autoGenerateMipmaps: true, scaleMode: 'linear', maxAnisotropy: 4 })
+      return new Texture({ source })
     })()
     p.catch(() => cache.delete(url))
     cache.set(url, p)

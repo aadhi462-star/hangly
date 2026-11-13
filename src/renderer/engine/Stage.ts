@@ -101,6 +101,7 @@ export class Stage {
     return {
       w: this.area.w,
       h: this.area.h,
+      top: -this.area.y,
       cursor: this.cursor ? { x: this.cursor.x - this.area.x, y: this.cursor.y - this.area.y } : null,
       paused: s.pausedAll || focus,
       profile: s.profile,

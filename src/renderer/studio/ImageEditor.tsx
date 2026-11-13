@@ -42,6 +42,16 @@ export function ImageEditor(p: Props): ReactNode {
   }
 
   useEffect(fit, [p.frame.id, p.frame.work.width, p.frame.work.height])
+  // Refit when the view is resized or shown again (e.g. returning to the Studio page).
+  useEffect(() => {
+    const el = wrap.current
+    if (!el) return
+    const ro = new ResizeObserver(() => {
+      if (el.clientWidth > 0) fit()
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [p.frame.id])
 
   useEffect(() => {
     const down = (e: KeyboardEvent): void => {

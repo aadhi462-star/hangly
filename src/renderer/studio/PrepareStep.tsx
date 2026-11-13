@@ -61,7 +61,7 @@ export function PrepareStep({ doc, selected, onSelect, onChange }: Props): React
         }
         pushHistory(f)
         total += removeBackground(f.work, tolerance, softness)
-        defringe(f.work, 2)
+        defringe(f.work, 2, true)
       }
       const n = targets().length - skipped
       setNotice(
@@ -195,7 +195,7 @@ export function PrepareStep({ doc, selected, onSelect, onChange }: Props): React
         <Section title="Refine edges">
           <div className="row gap wrap">
             <button className="btn small" onClick={() => heavy('Refining…', () => targets().forEach((f) => { pushHistory(f); erodeEdges(f.work, 1) }))}>Shrink edge 1px</button>
-            <button className="btn small" onClick={() => heavy('Cleaning edges…', () => targets().forEach((f) => { pushHistory(f); defringe(f.work, 2) }))}>Clean edge colour</button>
+            <button className="btn small" onClick={() => heavy('Cleaning edges…', () => targets().forEach((f) => { pushHistory(f); defringe(f.work, 2, true) }))}>Clean edge colour</button>
             <button className="btn small" onClick={() => heavy('Feathering…', () => targets().forEach((f) => { pushHistory(f); featherEdges(f.work, 2) }))}>Feather 2px</button>
           </div>
         </Section>

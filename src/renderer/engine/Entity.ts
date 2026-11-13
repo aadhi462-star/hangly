@@ -18,6 +18,8 @@ export type AssetResolver = (def: CharacterDefinition, path: string) => string
 export interface World {
   w: number
   h: number
+  /** Where the physical top of the screen is, relative to the area (≤ 0, e.g. -30 above the menu bar). */
+  top: number
   cursor: { x: number; y: number } | null
   paused: boolean
   profile: Settings['profile']
@@ -224,7 +226,7 @@ export class Entity {
   }
 
   private maxLen(w: World, l: number): number {
-    return clamp(l, 0, Math.max(0, w.h - this.size.h - 10))
+    return clamp(l, 0, Math.max(0, w.h - w.top - this.size.h - 10))
   }
 
   update(dt: number, w: World): void {
@@ -462,7 +464,7 @@ export class Entity {
       this.theta = clamp(this.theta + this.omega * h, -1.4, 1.4)
     }
     this.x = this.anchorX + Math.sin(this.theta) * this.len
-    this.y = Math.cos(this.theta) * this.len
+    this.y = w.top + Math.cos(this.theta) * this.len
   }
 
   // ---------- flying ----------
@@ -611,12 +613,12 @@ export class Entity {
     const y = py + this.dragOff.y
     if (this.inst.behaviour === 'hang') {
       const dx = x - this.anchorX
-      const dy = Math.max(4, y)
-      this.len = clamp(Math.hypot(dx, dy), 4, Math.max(4, w.h - this.size.h))
+      const dy = Math.max(4, y - w.top)
+      this.len = clamp(Math.hypot(dx, dy), 4, Math.max(4, w.h - w.top - this.size.h))
       this.theta = clamp(Math.atan2(dx, dy), -1.3, 1.3)
       this.omega = 0
       this.x = this.anchorX + Math.sin(this.theta) * this.len
-      this.y = Math.cos(this.theta) * this.len
+      this.y = w.top + Math.cos(this.theta) * this.len
     } else {
       this.x = clamp(x, 0, w.w)
       this.y = clamp(y, 0, w.h)
@@ -789,7 +791,7 @@ export class Entity {
     this.thread.clear()
     if (behaviour === 'hang' && i.hanging.threadWidth > 0 && this.len > 0.5) {
       this.thread
-        .moveTo(this.anchorX, 0)
+        .moveTo(this.anchorX, w.top)
         .lineTo(this.x, this.y + jump)
         .stroke({ width: i.hanging.threadWidth, color: i.hanging.threadColor, alpha: 0.85 * ap.opacity })
     }

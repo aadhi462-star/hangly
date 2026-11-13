@@ -61,7 +61,10 @@ export function App(): ReactNode {
         <div className="drag-region" />
         {page === 'home' && <Home />}
         {page === 'library' && <Library />}
-        {page === 'studio' && <Studio key={studioKey} />}
+        {/* The Studio stays mounted so switching pages never loses unsaved work. */}
+        <div hidden={page !== 'studio'}>
+          <Studio key={studioKey} />
+        </div>
         {page === 'active' && <Active />}
         {page === 'presets' && <Presets />}
         {page === 'settings' && <Settings />}

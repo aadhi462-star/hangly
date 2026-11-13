@@ -239,7 +239,7 @@ export function removeBackground(c: HTMLCanvasElement, tolerance: number, softne
  * Semi-transparent pixels with no solid pixels nearby are leftover background
  * haze and are cleared, and tiny detached specks are removed.
  */
-export function defringe(c: HTMLCanvasElement, radius = 2): void {
+export function defringe(c: HTMLCanvasElement, radius = 2, smooth = false): void {
   const { width: w, height: h } = c
   const g = ctx2d(c)
   const img = g.getImageData(0, 0, w, h)
@@ -300,6 +300,8 @@ export function defringe(c: HTMLCanvasElement, radius = 2): void {
   }
   removeSpecks(d, w, h, Math.max(12, Math.round(w * h * 0.0004)))
   g.putImageData(img, 0, 0)
+  // Anti-alias the stair-stepped outline a hard cut leaves behind.
+  if (smooth) featherEdges(c, 1)
 }
 
 /** Clear connected groups of visible pixels smaller than `minArea` (in place on RGBA data). */

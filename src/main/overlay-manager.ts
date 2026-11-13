@@ -81,7 +81,9 @@ export class OverlayManager {
   }
 
   private applyLevel(win: BrowserWindow, aboveFullScreen: boolean): void {
-    win.setAlwaysOnTop(true, aboveFullScreen ? 'screen-saver' : 'floating')
+    // 'status' sits just above the menu bar so hanging threads start at the very top
+    // of the screen; the overlay is click-through, so the menu bar still works.
+    win.setAlwaysOnTop(true, aboveFullScreen ? 'screen-saver' : 'status')
     win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: aboveFullScreen, skipTransformProcessType: true })
   }
 
