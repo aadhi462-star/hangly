@@ -33,7 +33,7 @@ export function App(): ReactNode {
     else document.documentElement.dataset.theme = t
   }, [app?.settings.theme])
 
-  if (!app) return <div className="boot">Loading ScreenPals…</div>
+  if (!app) return <div className="boot">Loading Screenly…</div>
 
   return (
     <div className="shell">
@@ -41,7 +41,7 @@ export function App(): ReactNode {
         <div className="drag-region" />
         <div className="brand">
           <span className="brand-mark" aria-hidden>🐾</span>
-          <span>ScreenPals</span>
+          <span>Screenly</span>
         </div>
         {NAV.map((n) => (
           <button key={n.page} className={`nav-item${page === n.page ? ' on' : ''}`} onClick={() => useUi.getState().go(n.page)}>

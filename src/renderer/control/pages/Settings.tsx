@@ -47,7 +47,7 @@ export function Settings(): ReactNode {
         <Toggle label="Characters avoid each other" hint="Walkers head away from a neighbour instead of piling up." checked={s.avoidOverlap} onChange={(avoidOverlap) => set({ avoidOverlap })} />
         <Toggle
           label="Stand on app windows"
-          hint="Characters land on, walk along and jump off the tops of your windows, and ride along when you move them. ScreenPals reads only window positions and sizes, never titles or contents."
+          hint="Characters land on, walk along and jump off the tops of your windows, and ride along when you move them. Screenly reads only window positions and sizes, never titles or contents."
           checked={s.standOnWindows}
           onChange={(standOnWindows) => set({ standOnWindows })}
         />
@@ -120,11 +120,11 @@ export function Settings(): ReactNode {
       </Section>
 
       <Section title="General">
-        <Toggle label="Show in Dock" hint="ScreenPals always stays in the menu bar." checked={s.showInDock} onChange={(showInDock) => set({ showInDock })} />
+        <Toggle label="Show in Dock" hint="Screenly always stays in the menu bar." checked={s.showInDock} onChange={(showInDock) => set({ showInDock })} />
         <Toggle label="Open at login" checked={s.launchAtLogin} onChange={(launchAtLogin) => set({ launchAtLogin })} />
         <div className="row gap">
           <button className="btn" onClick={() => void api.openDataFolder()}>Open data folder</button>
-          <button className="btn danger" onClick={() => void api.quit()}>Quit ScreenPals</button>
+          <button className="btn danger" onClick={() => void api.quit()}>Quit Screenly</button>
         </div>
       </Section>
     </div>

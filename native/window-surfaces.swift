@@ -1,4 +1,4 @@
-// ScreenPals window-surfaces helper.
+// Screenly window-surfaces helper.
 // Prints the rectangles of normal on-screen app windows (front to back) as one
 // JSON line whenever they change, so characters can stand on window tops.
 // Only geometry is read: no window titles, no contents, no screenshots, and no

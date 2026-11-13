@@ -36,7 +36,7 @@ export function registerAssetScheme(): void {
   ])
 }
 
-/** screenpals://char/<id>/<relative path> → read-only access to custom character assets. */
+/** screenly://char/<id>/<relative path> → read-only access to custom character assets. */
 export function handleAssetProtocol(): void {
   protocol.handle(ASSET_SCHEME, async (req) => {
     try {
@@ -191,11 +191,11 @@ export async function exportCharacter(id: string): Promise<Result<string>> {
   if (!def || !dir) return { ok: false, error: 'Only custom characters can be exported.' }
   const files: Record<string, string> = {}
   for (const rel of listFiles(dir)) if (FILE_RE.test(rel)) files[rel] = readFileSync(join(dir, rel)).toString('base64')
-  const pkg: CharacterPackage = { format: 'screenpals-character', version: 1, definition: def, files }
+  const pkg: CharacterPackage = { format: 'screenly-character', version: 1, definition: def, files }
   const { canceled, filePath } = await dialog.showSaveDialog({
     title: 'Export character',
-    defaultPath: `${def.name.replace(/[^\w -]/g, '')}.screenpal`,
-    filters: [{ name: 'ScreenPals character', extensions: ['screenpal'] }]
+    defaultPath: `${def.name.replace(/[^\w -]/g, '')}.screenly`,
+    filters: [{ name: 'Screenly character', extensions: ['screenly'] }]
   })
   if (canceled || !filePath) return { ok: false, error: 'cancelled' }
   writeFileSync(filePath, JSON.stringify(pkg))
@@ -206,14 +206,16 @@ export async function importCharacter(): Promise<Result<string>> {
   const { canceled, filePaths } = await dialog.showOpenDialog({
     title: 'Import character',
     properties: ['openFile'],
-    filters: [{ name: 'ScreenPals character', extensions: ['screenpal', 'json'] }]
+    // .screenpal files come from before the app was renamed; they import the same way.
+    filters: [{ name: 'Screenly character', extensions: ['screenly', 'screenpal', 'json'] }]
   })
   if (canceled || !filePaths[0]) return { ok: false, error: 'cancelled' }
   try {
     if (statSync(filePaths[0]).size > 400 * 1024 * 1024) return { ok: false, error: 'File is too large.' }
     const pkg = JSON.parse(readFileSync(filePaths[0], 'utf8')) as CharacterPackage
-    if (pkg.format !== 'screenpals-character' || pkg.version !== 1 || !pkg.definition || typeof pkg.files !== 'object') {
-      return { ok: false, error: 'This is not a ScreenPals character package.' }
+    const knownFormat = pkg.format === 'screenly-character' || (pkg.format as string) === 'screenpals-character'
+    if (!knownFormat || pkg.version !== 1 || !pkg.definition || typeof pkg.files !== 'object') {
+      return { ok: false, error: 'This is not a Screenly character package.' }
     }
     const files: Record<string, Uint8Array> = {}
     for (const [rel, b64] of Object.entries(pkg.files)) {

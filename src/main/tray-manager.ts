@@ -49,7 +49,7 @@ export class TrayManager {
 
   create(): void {
     this.tray = new Tray(pawIcon())
-    this.tray.setToolTip('ScreenPals')
+    this.tray.setToolTip('Screenly')
     this.refresh()
   }
 
@@ -60,9 +60,9 @@ export class TrayManager {
     const a = this.actions
     this.tray.setContextMenu(
       Menu.buildFromTemplate([
-        { label: `ScreenPals — ${count} active`, enabled: false },
+        { label: `Screenly — ${count} active`, enabled: false },
         { type: 'separator' },
-        { label: 'Open ScreenPals', accelerator: s.shortcuts.openPanel, click: () => a.open() },
+        { label: 'Open Screenly', accelerator: s.shortcuts.openPanel, click: () => a.open() },
         { label: 'Open Character Studio', click: () => a.open('studio') },
         { label: 'Settings…', click: () => a.open('settings') },
         { type: 'separator' },
@@ -77,7 +77,7 @@ export class TrayManager {
           click: () => a.toggleInteraction()
         },
         { type: 'separator' },
-        { label: 'Quit ScreenPals', role: undefined, click: () => a.quit() }
+        { label: 'Quit Screenly', role: undefined, click: () => a.quit() }
       ])
     )
   }

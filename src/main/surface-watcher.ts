@@ -36,7 +36,7 @@ export class SurfaceWatcher {
       console.warn('[surfaces] helper not found; characters will use screen edges only')
       return
     }
-    // ScreenPals' own panel counts as a surface too; the overlays are never included (they aren't normal-level windows).
+    // Screenly' own panel counts as a surface too; the overlays are never included (they aren't normal-level windows).
     const child = spawn(bin, ['-1'], { stdio: ['pipe', 'pipe', 'ignore'] })
     this.child = child
     child.stdout?.setEncoding('utf8')

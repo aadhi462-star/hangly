@@ -255,7 +255,7 @@ export interface OverlayInit {
 
 /** A character package on disk / in an export file. */
 export interface CharacterPackage {
-  format: 'screenpals-character'
+  format: 'screenly-character'
   version: 1
   definition: CharacterDefinition
   /** relative path -> base64 PNG/JPEG/WebP bytes */

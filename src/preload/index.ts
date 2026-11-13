@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import type { ScreenPalsApi } from '../shared/ipc'
+import type { ScreenlyApi } from '../shared/ipc'
 
 // Only named, purpose-specific calls cross the bridge. The renderer never gets
 // ipcRenderer, fs, or any generic "invoke anything" function.
@@ -12,7 +12,7 @@ function on<T>(channel: string, cb: (v: T) => void): () => void {
 
 const inv = ipcRenderer.invoke.bind(ipcRenderer)
 
-const api: ScreenPalsApi = {
+const api: ScreenlyApi = {
   platform: process.platform,
   getState: () => inv('state:get'),
   getDisplays: () => inv('displays:get'),
@@ -63,4 +63,4 @@ const api: ScreenPalsApi = {
   }
 }
 
-contextBridge.exposeInMainWorld('screenpals', api)
+contextBridge.exposeInMainWorld('screenly', api)

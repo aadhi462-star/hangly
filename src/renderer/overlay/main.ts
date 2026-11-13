@@ -7,7 +7,7 @@ import { Stage } from '../engine/Stage'
 // The transparent desktop overlay for one display. It only renders and reports
 // status; every change to characters goes through the main process.
 
-const api = window.screenpals
+const api = window.screenly
 const displayId = Number(new URLSearchParams(location.search).get('display'))
 let init: OverlayInit | null = null
 let state: AppState | null = null

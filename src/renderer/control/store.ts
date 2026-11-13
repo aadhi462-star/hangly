@@ -50,7 +50,7 @@ export const useUi = create<UiState>((set) => ({
   }
 }))
 
-export const api = window.screenpals
+export const api = window.screenly
 
 /** Built-in + custom characters, minus built-ins the user hid. */
 export function allCharacters(app: AppState | null, includeHidden = false): CharacterDefinition[] {

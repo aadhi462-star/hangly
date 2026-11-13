@@ -1,13 +1,25 @@
 import { app } from 'electron'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { BUILT_IN_PROFILES, DEFAULT_HANGING, DEFAULT_SETTINGS, MAX_CHARACTERS_HARD_LIMIT, defaultState } from '../shared/defaults'
 import type { AppState, CharacterInstance, Settings } from '../shared/types'
 
 export function dataDir(): string {
-  const dir = join(app.getPath('userData'), 'ScreenPals')
+  const dir = join(app.getPath('userData'), 'Screenly')
+  if (!existsSync(dir)) migrateFromScreenPals(dir)
   mkdirSync(dir, { recursive: true })
   return dir
+}
+
+/** The app used to be called ScreenPals: copy its data across once (the old folder stays as a backup). */
+function migrateFromScreenPals(dir: string): void {
+  const old = join(app.getPath('appData'), 'screenpals', 'ScreenPals')
+  if (!existsSync(old)) return
+  try {
+    cpSync(old, dir, { recursive: true })
+  } catch (err) {
+    console.error('[store] could not copy ScreenPals data', err)
+  }
 }
 
 const statePath = (): string => join(dataDir(), 'settings', 'state.json')

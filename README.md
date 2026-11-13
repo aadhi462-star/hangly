@@ -1,8 +1,10 @@
-# ScreenPals
+# Screenly
 
 *A little life on your desktop.*
 
-ScreenPals puts animated animals and your own characters on your Mac. They walk along the bottom of the screen, hang from the top edge on a thread, swing, fly between windows and climb the screen edges. The overlay is click-through, so the characters never get in the way of your work.
+**The name:** *Screen* + *-ly*, the English ending that turns a thing into a quality, as in *lively* or *friendly*. Screenly is what your screen becomes when characters live on it: lively. The characters belong to the screen, standing on your windows, hanging from the top edge and walking along the Dock.
+
+Screenly puts animated animals and your own characters on your Mac. They walk along the bottom of the screen, hang from the top edge on a thread, swing, fly between windows and climb the screen edges. The overlay is click-through, so the characters never get in the way of your work.
 
 ## Requirements
 
@@ -24,7 +26,7 @@ npm run dist:mac   # build a .dmg / .zip with electron-builder
 
 ## Using it
 
-- **Menu bar**: the paw icon has Open, Character Studio, Settings, Pause/Resume all, Hide/Show all, Focus mode, Allow interaction and Quit. Closing the window leaves ScreenPals running in the menu bar.
+- **Menu bar**: the paw icon has Open, Character Studio, Settings, Pause/Resume all, Hide/Show all, Focus mode, Allow interaction and Quit. Closing the window leaves Screenly running in the menu bar.
 - **Default global shortcuts** (change them in Settings → Keyboard shortcuts):
   - ⌘⌥P pauses or resumes all characters
   - ⌘⌥H is the emergency hide/show
@@ -41,7 +43,7 @@ src/
     store.ts            the single AppState, validation (mergeKnown/sanitize*), atomic JSON persistence
     overlay-manager.ts  one transparent always-on-top click-through window per display, cursor feed
     display-manager.ts  screen API helpers and change watching
-    asset-manager.ts    screenpals:// protocol, custom character files, import/export
+    asset-manager.ts    screenly:// protocol, custom character files, import/export
     tray-manager.ts     menu bar icon (drawn at runtime) and menu
     shortcut-manager.ts global shortcuts with conflict reporting
   preload/index.ts      contextBridge API: named calls only, no raw ipcRenderer/fs
@@ -74,7 +76,7 @@ Hanging uses a damped pendulum, integrated at 120 Hz substeps, with an energy pu
 
 ## Data on disk
 
-`~/Library/Application Support/screenpals/ScreenPals/`
+`~/Library/Application Support/screenly/Screenly/`
 
 ```
 settings/state.json                    settings, active characters, profiles, presets
@@ -83,7 +85,7 @@ characters/custom/<id>/processed/      edited frames (PNG)
 characters/custom/<id>/configuration.json
 ```
 
-Export writes a single `.screenpal` file (JSON with base64 images). Import always creates a new character.
+Export writes a single `.screenly` file (JSON with base64 images). Import always creates a new character.
 
 ## Adding a built-in character
 

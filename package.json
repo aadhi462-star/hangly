@@ -1,6 +1,6 @@
 {
-  "name": "screenpals",
-  "productName": "ScreenPals",
+  "name": "screenly",
+  "productName": "Screenly",
   "version": "0.1.0",
   "description": "A little life on your desktop.",
   "main": "out/main/index.js",
@@ -33,8 +33,8 @@
     "zustand": "^5.1.0"
   },
   "build": {
-    "appId": "com.screenpals.app",
-    "productName": "ScreenPals",
+    "appId": "com.screenly.app",
+    "productName": "Screenly",
     "files": [
       "out/**/*",
       "package.json"

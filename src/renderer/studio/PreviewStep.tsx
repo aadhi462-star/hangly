@@ -29,7 +29,7 @@ export function PreviewStep({ doc, pixels, saving, onDesktop, onSave }: Props): 
     <div className="studio-grid">
       <div className="col gap">
         <LivePreview doc={doc} version={pixels} behaviour={b} scale={scale} opacity={opacity} speed={speed} animSpeed={animSpeed} backdrop={backdrop} resetKey={resetKey} />
-        <p className="muted small">This is the real ScreenPals engine. Drag the character, click it, or rub the cursor over it to pet it.</p>
+        <p className="muted small">This is the real Screenly engine. Drag the character, click it, or rub the cursor over it to pet it.</p>
       </div>
       <aside className="studio-side">
         <Section title="Test">

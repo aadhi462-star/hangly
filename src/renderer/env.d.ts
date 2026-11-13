@@ -1,9 +1,9 @@
 /// <reference types="vite/client" />
-import type { ScreenPalsApi } from '../shared/ipc'
+import type { ScreenlyApi } from '../shared/ipc'
 
 declare global {
   interface Window {
-    screenpals: ScreenPalsApi
+    screenly: ScreenlyApi
   }
 }
 

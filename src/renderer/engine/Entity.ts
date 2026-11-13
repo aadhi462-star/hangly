@@ -176,7 +176,7 @@ export class Entity {
         const durations = seq.frames.map((f) => f.duration)
         next.set(name, { textures, durations, total: durations.reduce((a, b) => a + b, 0), loop: seq.loop })
       } catch (err) {
-        console.warn(`[ScreenPals] could not load "${name}" frames for ${def.name}`, err)
+        console.warn(`[Screenly] could not load "${name}" frames for ${def.name}`, err)
       }
     }
     if (token !== this.loadToken) return

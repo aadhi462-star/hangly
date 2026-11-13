@@ -56,7 +56,7 @@ function openControl(page?: Page): void {
       minWidth: 960,
       minHeight: 640,
       show: false,
-      title: 'ScreenPals',
+      title: 'Screenly',
       titleBarStyle: 'hiddenInset',
       trafficLightPosition: { x: 18, y: 18 },
       backgroundColor: nativeTheme.shouldUseDarkColors ? '#1c1c1f' : '#f5f5f7',

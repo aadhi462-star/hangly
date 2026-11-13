@@ -17,7 +17,7 @@ export function Home(): ReactNode {
     <div className="page">
       <section className="hero">
         <div>
-          <p className="eyebrow">ScreenPals</p>
+          <p className="eyebrow">Screenly</p>
           <h1>A little life on your desktop.</h1>
           <p className="muted">
             Put animals and your own characters on your screen. They walk along the Dock, hang from the menu bar and fly between your windows,

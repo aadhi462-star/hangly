@@ -28,8 +28,8 @@ export interface SaveCharacterRequest {
 
 export type Page = 'home' | 'library' | 'studio' | 'active' | 'presets' | 'settings'
 
-/** The API the preload script exposes on window.screenpals. */
-export interface ScreenPalsApi {
+/** The API the preload script exposes on window.screenly. */
+export interface ScreenlyApi {
   platform: string
   getState(): Promise<AppState>
   getDisplays(): Promise<DisplayInfo[]>
@@ -83,7 +83,7 @@ export interface ScreenPalsApi {
   }
 }
 
-export const ASSET_SCHEME = 'screenpals'
+export const ASSET_SCHEME = 'screenly'
 
 export function assetUrl(characterId: string, path: string, version?: number): string {
   const v = version ? `?v=${version}` : ''

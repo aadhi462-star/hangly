@@ -105,7 +105,7 @@ export function Library(): ReactNode {
                         className="icon-btn danger"
                         title="Delete"
                         onClick={() => {
-                          if (confirm(`Delete “${def.name}”? Its files will be removed from ScreenPals. This cannot be undone.`)) void run(api.deleteCustomCharacter(def.id), 'Deleted')
+                          if (confirm(`Delete “${def.name}”? Its files will be removed from Screenly. This cannot be undone.`)) void run(api.deleteCustomCharacter(def.id), 'Deleted')
                         }}
                       >
                         <Icon name="trash" />
