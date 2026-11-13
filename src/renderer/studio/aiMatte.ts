@@ -1,7 +1,8 @@
 // AI background removal with a local segmentation model (ormbg, Apache-2.0).
 // Inference runs on this Mac (WebGPU when available, otherwise WebAssembly).
-// Only the model weights are downloaded, once, from Hugging Face; images are
-// never uploaded anywhere.
+// Only the model files are downloaded, once, from Hugging Face; images are
+// never uploaded anywhere. The download is pinned to one commit of the model
+// repository and every file is checked against its SHA-256 before it is used.
 import ortMjs from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url'
 import ortWasm from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url'
 import { ctx2d } from './imageOps'
@@ -12,6 +13,97 @@ export interface AiProgress {
   stage: 'download' | 'load' | 'run'
   /** 0..1 while downloading */
   progress?: number
+}
+
+/** The exact commit of onnx-community/ormbg-ONNX that was reviewed. */
+const MODEL_REVISION = '034e2d884afbab897e10e78fc5bb566b29533fd6'
+/** SHA-256 of every file the pipeline loads at that commit. Anything else is refused. */
+const PINNED_FILES: Record<string, string> = {
+  'config.json': 'd0b94ab052ace79177085c66a00a3f014a973edb09999cb0108bb01e65ded060',
+  'preprocessor_config.json': 'ed502c6ea29c5fb8aafdafdc5bcf1657dfca09888ff753e5c358672ebcfd448d',
+  'onnx/model.onnx': '2830b6f461809cdc7e2f15d19fc1a898b14ad53504640d4147b525d53ebb09c9'
+}
+const CACHE_NAME = 'screenly-models-v1'
+
+export class IntegrityError extends Error {}
+
+/** The pinned file a URL refers to, or null if it isn't one of them. */
+function pinnedFile(url: string): string | null {
+  const prefix = `https://huggingface.co/${AI_MODEL.id}/resolve/${MODEL_REVISION}/`
+  if (!url.startsWith(prefix)) return null
+  const file = decodeURIComponent(url.slice(prefix.length).split('?')[0])
+  return file in PINNED_FILES ? file : null
+}
+
+async function sha256(bytes: ArrayBuffer): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+/** Returns the bytes as a Response only if their fingerprint matches the pinned one. */
+async function verified(file: string, bytes: ArrayBuffer): Promise<Response> {
+  const got = await sha256(bytes)
+  if (got !== PINNED_FILES[file]) {
+    throw new IntegrityError(
+      `The AI model file "${file}" failed its integrity check (got ${got.slice(0, 12)}…, ${bytes.byteLength} bytes), so it was not used`
+    )
+  }
+  return new Response(bytes, { status: 200, headers: { 'content-length': String(bytes.byteLength) } })
+}
+
+/** Downloads a pinned file with progress, then verifies it. Any other URL is refused. */
+function verifyingFetch(onProgress: (p: AiProgress) => void) {
+  return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    const file = pinnedFile(url)
+    if (!file) throw new IntegrityError(`Blocked an unexpected download: ${url}`)
+    // Size probes (HEAD or a byte-range request) only read metadata; full downloads are verified below.
+    const headers = new Headers(init?.headers)
+    if (init?.method === 'HEAD' || headers.has('range')) return fetch(url, init)
+    const res = await fetch(url, init)
+    if (!res.ok || !res.body) return res
+    const total = Number(res.headers.get('content-length')) || 0
+    const reader = res.body.getReader()
+    const chunks: Uint8Array[] = []
+    let loaded = 0
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      chunks.push(value)
+      loaded += value.byteLength
+      if (total && file.endsWith('.onnx')) onProgress({ stage: 'download', progress: loaded / total })
+    }
+    const bytes = new Uint8Array(loaded)
+    let at = 0
+    for (const c of chunks) {
+      bytes.set(c, at)
+      at += c.byteLength
+    }
+    return verified(file, bytes.buffer)
+  }
+}
+
+/** Keeps verified files between sessions and re-checks them every time they are read back. */
+const verifyingCache = {
+  async match(key: string): Promise<Response | undefined> {
+    const file = pinnedFile(key)
+    if (!file) return undefined
+    const cache = await caches.open(CACHE_NAME)
+    const hit = await cache.match(key)
+    if (!hit) return undefined
+    try {
+      return await verified(file, await hit.arrayBuffer())
+    } catch {
+      // Modified on disk: throw it away and download a fresh, verified copy.
+      await cache.delete(key)
+      return undefined
+    }
+  },
+  async put(key: string, response: Response): Promise<void> {
+    if (!pinnedFile(key)) return
+    const cache = await caches.open(CACHE_NAME)
+    await cache.put(key, response)
+  }
 }
 
 type Segmenter = (input: unknown) => Promise<{ width: number; height: number; channels: number; data: Uint8ClampedArray }>
@@ -28,6 +120,14 @@ async function load(device: Device, onProgress: (p: AiProgress) => void): Promis
   const wasm = env.backends.onnx.wasm as { wasmPaths?: unknown } | undefined
   if (wasm) wasm.wasmPaths = { mjs: ortMjs, wasm: ortWasm }
   env.allowLocalModels = false
+  // Some loaders ignore the revision option, so pin the commit in the URL pattern itself.
+  env.remoteHost = 'https://huggingface.co/'
+  env.remotePathTemplate = `{model}/resolve/${MODEL_REVISION}/`
+  // Every model file goes through the verifying download and cache above.
+  env.fetch = verifyingFetch(onProgress) as typeof env.fetch
+  env.useBrowserCache = false
+  env.useCustomCache = typeof caches !== 'undefined'
+  env.customCache = env.useCustomCache ? (verifyingCache as unknown as typeof env.customCache) : null
 
   const files = new Map<string, { loaded: number; total: number }>()
   const progress_callback = (e: { status: string; file?: string; loaded?: number; total?: number }): void => {
@@ -42,7 +142,7 @@ async function load(device: Device, onProgress: (p: AiProgress) => void): Promis
       onProgress({ stage: 'download', progress: total ? loaded / total : 0 })
     } else if (e.status === 'ready') onProgress({ stage: 'load' })
   }
-  return pipeline('background-removal', AI_MODEL.id, { dtype: 'fp32', device, progress_callback }) as unknown as Promise<Segmenter>
+  return pipeline('background-removal', AI_MODEL.id, { dtype: 'fp32', device, revision: MODEL_REVISION, progress_callback }) as unknown as Promise<Segmenter>
 }
 
 function segmenter(device: Device, onProgress: (p: AiProgress) => void): Promise<Segmenter> {
