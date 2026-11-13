@@ -168,6 +168,7 @@ export function sanitizeInstance(i: CharacterInstance): CharacterInstance {
   h.ascentSpeed = clamp(h.ascentSpeed, 5, 800)
   h.rotation = clamp(h.rotation, -180, 180)
   if (!COLOR.test(h.threadColor)) h.threadColor = DEFAULT_HANGING.threadColor
+  if (h.anchorFrom !== 'screen' && h.anchorFrom !== 'menubar') h.anchorFrom = 'screen'
   if (!BEHAVIOURS.includes(i.behaviour)) i.behaviour = 'stationary'
   if (!Number.isFinite(i.x)) i.x = 100
   if (!Number.isFinite(i.y)) i.y = 0

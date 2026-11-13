@@ -225,8 +225,13 @@ export class Entity {
     return w.h - (this.rig?.origin === 'center' ? this.rig.groundOffset * this.unit : 0)
   }
 
+  /** Y of the thread's tie point: the screen's top edge, or the top of the work area (below the menu bar). */
+  private anchorY(w: World): number {
+    return this.inst.hanging.anchorFrom === 'menubar' ? 0 : w.top
+  }
+
   private maxLen(w: World, l: number): number {
-    return clamp(l, 0, Math.max(0, w.h - w.top - this.size.h - 10))
+    return clamp(l, 0, Math.max(0, w.h - this.anchorY(w) - this.size.h - 10))
   }
 
   update(dt: number, w: World): void {
@@ -438,6 +443,12 @@ export class Entity {
       this.setState('hanging', this.idleDur(w))
     }
 
+    // A new thread length from the panel takes effect right away, smoothly.
+    if ((this.state === 'hanging' || this.state === 'swinging') && Math.abs(this.len - rest) > 0.5 && Math.abs(this.targetLen - rest) > 0.5) {
+      this.len += clamp(rest - this.len, -hc.ascentSpeed * dt * 2, hc.descentSpeed * dt * 2)
+      if (Math.abs(this.len - rest) <= 0.5) this.targetLen = this.len = rest
+    }
+
     if (mv.followCursor && w.cursor) this.anchorX += clamp(w.cursor.x - this.anchorX, -1, 1) * Math.min(Math.abs(w.cursor.x - this.anchorX), 120 * dt)
 
     const amp = this.state === 'swinging' ? hc.amplitude : hc.idleSway ? Math.min(3, hc.amplitude) : 0
@@ -464,7 +475,7 @@ export class Entity {
       this.theta = clamp(this.theta + this.omega * h, -1.4, 1.4)
     }
     this.x = this.anchorX + Math.sin(this.theta) * this.len
-    this.y = w.top + Math.cos(this.theta) * this.len
+    this.y = this.anchorY(w) + Math.cos(this.theta) * this.len
   }
 
   // ---------- flying ----------
@@ -613,12 +624,12 @@ export class Entity {
     const y = py + this.dragOff.y
     if (this.inst.behaviour === 'hang') {
       const dx = x - this.anchorX
-      const dy = Math.max(4, y - w.top)
-      this.len = clamp(Math.hypot(dx, dy), 4, Math.max(4, w.h - w.top - this.size.h))
+      const dy = Math.max(4, y - this.anchorY(w))
+      this.len = clamp(Math.hypot(dx, dy), 4, Math.max(4, w.h - this.anchorY(w) - this.size.h))
       this.theta = clamp(Math.atan2(dx, dy), -1.3, 1.3)
       this.omega = 0
       this.x = this.anchorX + Math.sin(this.theta) * this.len
-      this.y = w.top + Math.cos(this.theta) * this.len
+      this.y = this.anchorY(w) + Math.cos(this.theta) * this.len
     } else {
       this.x = clamp(x, 0, w.w)
       this.y = clamp(y, 0, w.h)
@@ -791,7 +802,7 @@ export class Entity {
     this.thread.clear()
     if (behaviour === 'hang' && i.hanging.threadWidth > 0 && this.len > 0.5) {
       this.thread
-        .moveTo(this.anchorX, w.top)
+        .moveTo(this.anchorX, this.anchorY(w))
         .lineTo(this.x, this.y + jump)
         .stroke({ width: i.hanging.threadWidth, color: i.hanging.threadColor, alpha: 0.85 * ap.opacity })
     }

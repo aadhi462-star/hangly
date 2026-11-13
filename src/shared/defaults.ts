@@ -24,7 +24,8 @@ export const DEFAULT_HANGING: HangingConfig = {
   ascentSpeed: 90,
   rotation: 0,
   returnToTop: true,
-  idleSway: true
+  idleSway: true,
+  anchorFrom: 'screen'
 }
 
 const b = (...xs: Behaviour[]): Behaviour[] => xs

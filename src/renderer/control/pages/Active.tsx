@@ -3,6 +3,7 @@ import { BEHAVIOUR_LABELS, STATE_LABELS } from '../../../shared/defaults'
 import type { Behaviour } from '../../../shared/types'
 import { api, findCharacter, run, useUi } from '../store'
 import { Empty, Icon, PageHeader, Slider, Thumb, pct } from '../ui'
+import { HangingPlace } from './HangingPlace'
 
 export function Active(): ReactNode {
   const app = useUi((s) => s.app)!
@@ -70,6 +71,7 @@ export function Active(): ReactNode {
                 <div className="cell-slider">
                   <Slider label="Size" value={inst.appearance.scale} min={0.1} max={2} step={0.01} format={pct} onChange={(scale) => void api.updateInstance(inst.instanceId, { appearance: { scale } })} />
                   <Slider label="Opacity" value={inst.appearance.opacity} min={0.1} max={1} step={0.01} format={pct} onChange={(opacity) => void api.updateInstance(inst.instanceId, { appearance: { opacity } })} />
+                  {inst.behaviour === 'hang' && <HangingPlace inst={inst} compact />}
                 </div>
                 <div className="cell-actions">
                   <button className="icon-btn" title={inst.paused ? 'Resume' : 'Pause'} onClick={() => void api.updateInstance(inst.instanceId, { paused: !inst.paused })}>

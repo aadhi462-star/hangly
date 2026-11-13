@@ -3,7 +3,7 @@ import { Section, Slider, Toggle } from '../control/ui'
 import { AI_MODEL, aiRemoveBackground } from './aiMatte'
 import { FrameThumb } from './ImportStep'
 import { ImageEditor, type Tool } from './ImageEditor'
-import { crop, defringe, erodeEdges, featherEdges, flip, hasTransparentBorder, opaqueBounds, removeBackground, resize, rotate, type Rect } from './imageOps'
+import { crop, defringe, keepLargestShape, erodeEdges, featherEdges, flip, hasTransparentBorder, opaqueBounds, removeBackground, resize, rotate, type Rect } from './imageOps'
 import { applyGeometry, pushHistory, redo, resetFrame, undo, type StudioDoc, type StudioFrame } from './model'
 
 interface Props {
@@ -229,6 +229,22 @@ export function PrepareStep({ doc, selected, onSelect, onChange }: Props): React
         <Section title="Refine edges">
           <div className="row gap wrap">
             <button className="btn small" onClick={() => heavy('Refining…', () => targets().forEach((f) => { pushHistory(f); erodeEdges(f.work, 1) }))}>Shrink edge 1px</button>
+            <button
+              className="btn small"
+              title="Removes detached pieces such as birds, debris or bits of background"
+              onClick={() =>
+                heavy('Keeping main subject…', () => {
+                  let pieces = 0
+                  for (const f of targets()) {
+                    pushHistory(f)
+                    pieces += keepLargestShape(f.work)
+                  }
+                  setNotice(pieces ? `Removed ${pieces} detached piece${pieces > 1 ? 's' : ''}.` : 'Nothing detached to remove.')
+                })
+              }
+            >
+              Keep main subject
+            </button>
             <button className="btn small" onClick={() => heavy('Cleaning edges…', () => targets().forEach((f) => { pushHistory(f); defringe(f.work, 2, true) }))}>Clean edge colour</button>
             <button className="btn small" onClick={() => heavy('Feathering…', () => targets().forEach((f) => { pushHistory(f); featherEdges(f.work, 2) }))}>Feather 2px</button>
           </div>

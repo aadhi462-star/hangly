@@ -157,7 +157,19 @@ input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; width: 16p
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
 .grid.small { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .card.compact { align-items: center; text-align: center; gap: 8px; }
-.char-art { position: relative; display: grid; place-items: center; height: 132px; border-radius: 10px; background: radial-gradient(circle at 50% 70%, var(--accent-soft), transparent 70%), var(--panel-2); }
+.char-art { position: relative; display: flex; align-items: center; justify-content: center; height: 176px; padding: 18px; border-radius: 12px; overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 100%, var(--accent-soft), transparent 65%), linear-gradient(180deg, var(--panel-2), var(--panel)); }
+.thumb.fill { width: 100%; height: 100%; }
+.thumb.fill img { filter: drop-shadow(0 6px 10px rgb(0 0 0 / 22%)); }
+/* Walkers stand on a ground line; hangers hang from the top edge on a thread; flyers float. */
+.char-art.walk, .char-art.stationary { align-items: flex-end; padding-bottom: 22px; }
+.char-art.walk::after, .char-art.stationary::after { content: ''; position: absolute; left: 14%; right: 14%; bottom: 20px; height: 1px; background: linear-gradient(90deg, transparent, var(--line), transparent); }
+.char-art.hang { align-items: flex-start; padding-top: 30px; }
+.char-art.hang .thumb.fill { height: 100%; }
+.char-art.hang .thumb.fill img { object-position: center top; }
+.art-thread { position: absolute; left: 50%; top: 0; width: 1.5px; height: 32px; transform: translateX(-50%); background: linear-gradient(var(--muted), color-mix(in srgb, var(--muted) 60%, transparent)); }
+.char-art.fly .thumb.fill img { animation: bob 3.2s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translateY(-6px); } }
 .badge { font-size: 11px; font-weight: 600; background: var(--accent); color: var(--accent-ink); padding: 1px 8px; border-radius: 10px; }
 .char-art .badge { position: absolute; top: 8px; right: 8px; }
 .char-meta { display: flex; flex-direction: column; gap: 2px; flex: 1; }
@@ -169,6 +181,7 @@ input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; width: 16p
 .chip-btn > button:hover { background: var(--panel-2); }
 .card-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .thumb { display: grid; place-items: center; flex: none; overflow: hidden; }
+.char-art .thumb { overflow: visible; }
 .thumb img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 2px 3px rgb(0 0 0 / 15%)); }
 .thumb-empty { width: 60%; height: 60%; border-radius: 50%; background: var(--panel-2); }
 .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }

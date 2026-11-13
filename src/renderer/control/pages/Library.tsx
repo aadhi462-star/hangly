@@ -72,8 +72,9 @@ export function Library(): ReactNode {
             const count = app.instances.filter((i) => i.characterId === def.id).length
             return (
               <article className={`card char-card${hidden ? ' dimmed' : ''}`} key={def.id}>
-                <div className="char-art">
-                  <Thumb def={def} size={112} />
+                <div className={`char-art ${def.defaultBehaviour}`}>
+                  {def.defaultBehaviour === 'hang' && (def.hanging?.threadWidth ?? 1) > 0 && <span className="art-thread" aria-hidden />}
+                  <Thumb def={def} fill />
                   {count > 0 && <span className="badge">{count} active</span>}
                 </div>
                 <div className="char-meta">

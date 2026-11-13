@@ -304,6 +304,55 @@ export function defringe(c: HTMLCanvasElement, radius = 2, smooth = false): void
   if (smooth) featherEdges(c, 1)
 }
 
+/** Keep only the largest connected shape (the main subject); clears detached pieces like birds or debris. */
+export function keepLargestShape(c: HTMLCanvasElement): number {
+  const { width: w, height: h } = c
+  const g = ctx2d(c)
+  const img = g.getImageData(0, 0, w, h)
+  const d = img.data
+  const label = new Int32Array(w * h)
+  const sizes = [0]
+  const stack = new Int32Array(w * h)
+  for (let s = 0; s < w * h; s++) {
+    if (label[s] || d[s * 4 + 3] < 8) continue
+    const id = sizes.length
+    let n = 0
+    let sp = 0
+    stack[sp++] = s
+    label[s] = id
+    while (sp > 0) {
+      const p = stack[--sp]
+      n++
+      const x = p % w
+      const y = (p / w) | 0
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx
+          const yy = y + dy
+          if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue
+          const q = yy * w + xx
+          if (label[q] || d[q * 4 + 3] < 8) continue
+          label[q] = id
+          stack[sp++] = q
+        }
+      }
+    }
+    sizes.push(n)
+  }
+  if (sizes.length <= 2) return 0
+  let keep = 1
+  for (let i = 2; i < sizes.length; i++) if (sizes[i] > sizes[keep]) keep = i
+  let removed = 0
+  for (let p = 0; p < w * h; p++) {
+    if (label[p] && label[p] !== keep) {
+      d[p * 4 + 3] = 0
+      removed++
+    }
+  }
+  g.putImageData(img, 0, 0)
+  return sizes.length - 2
+}
+
 /** Clear connected groups of visible pixels smaller than `minArea` (in place on RGBA data). */
 function removeSpecks(d: Uint8ClampedArray, w: number, h: number, minArea: number): void {
   const label = new Uint8Array(w * h)

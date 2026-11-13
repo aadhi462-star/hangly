@@ -5,6 +5,7 @@ import type { Behaviour, CharacterInstance } from '../../../shared/types'
 import { api, findCharacter, run, useUi } from '../store'
 import { Icon, Segmented, Slider, Thumb, Toggle, pct } from '../ui'
 import { HangingControls } from './HangingControls'
+import { HangingPlace } from './HangingPlace'
 
 type Tab = 'appearance' | 'movement' | 'position' | 'interaction' | 'hanging'
 
@@ -157,6 +158,7 @@ export function Customize({ instanceId }: { instanceId: string }): ReactNode {
 
           {tab === 'position' && (
             <>
+              {inst.behaviour === 'hang' && <HangingPlace inst={inst} />}
               <p className="muted small">
                 Current: x {Math.round(st?.x ?? inst.x)}, y {Math.round(st?.y ?? inst.y)} on{' '}
                 {displays.find((d) => d.id === inst.displayId)?.label ?? 'display'}. You can also drag the character on screen.
@@ -196,7 +198,12 @@ export function Customize({ instanceId }: { instanceId: string }): ReactNode {
             </>
           )}
 
-          {tab === 'hanging' && <HangingControls value={inst.hanging} onChange={(hanging) => set({ hanging })} showAnchor />}
+          {tab === 'hanging' && (
+            <>
+              <HangingPlace inst={inst} />
+              <HangingControls value={inst.hanging} onChange={(hanging) => set({ hanging })} showAnchor />
+            </>
+          )}
         </div>
       </aside>
     </div>

@@ -101,10 +101,10 @@ export function PageHeader(props: { title: string; subtitle?: string; actions?: 
   )
 }
 
-export function Thumb({ def, size = 64 }: { def: CharacterDefinition | undefined; size?: number }): ReactNode {
+export function Thumb({ def, size = 64, fill }: { def: CharacterDefinition | undefined; size?: number; fill?: boolean }): ReactNode {
   const url = useThumb(def)
   return (
-    <div className="thumb" style={{ width: size, height: size }}>
+    <div className={`thumb${fill ? ' fill' : ''}`} style={fill ? undefined : { width: size, height: size }}>
       {url ? <img src={url} alt="" draggable={false} /> : <span className="thumb-empty" />}
     </div>
   )

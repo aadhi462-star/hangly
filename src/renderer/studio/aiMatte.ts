@@ -90,14 +90,50 @@ export async function aiRemoveBackground(c: HTMLCanvasElement, onProgress: (p: A
   }
   const { width: w, height: h } = c
   if (out.width !== w || out.height !== h || out.channels !== 4) throw new Error('Unexpected mask size from the model.')
+  const mask = fillInteriorHoles(out.data, w, h)
   const g = ctx2d(c)
   const img = g.getImageData(0, 0, w, h)
   let cleared = 0
   for (let p = 0; p < w * h; p++) {
-    const a = out.data[p * 4 + 3]
+    const a = mask[p]
     if (a < img.data[p * 4 + 3]) img.data[p * 4 + 3] = a
     if (a < 8) cleared++
   }
   g.putImageData(img, 0, 0)
   return cleared / (w * h)
+}
+
+/**
+ * Models sometimes make light details inside the subject (a silver chest
+ * emblem, eye lenses) partly transparent. A real soft edge always sits next to
+ * clear background, so translucent pixels with no clear background within a
+ * few pixels are made solid. Gaps the model is sure about (alpha ≈ 0) stay open.
+ */
+function fillInteriorHoles(rgba: Uint8ClampedArray, w: number, h: number): Uint8ClampedArray {
+  const reach = 4
+  const mask = new Uint8ClampedArray(w * h)
+  const dist = new Uint8Array(w * h).fill(255)
+  const queue = new Int32Array(w * h)
+  let head = 0
+  let tail = 0
+  for (let p = 0; p < w * h; p++) {
+    mask[p] = rgba[p * 4 + 3]
+    if (mask[p] < 10) {
+      dist[p] = 0
+      queue[tail++] = p
+    }
+  }
+  while (head < tail) {
+    const p = queue[head++]
+    const nd = dist[p] + 1
+    if (nd > reach) continue
+    const x = p % w
+    for (const q of [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, p - w, p + w]) {
+      if (q < 0 || q >= w * h || dist[q] <= nd) continue
+      dist[q] = nd
+      queue[tail++] = q
+    }
+  }
+  for (let p = 0; p < w * h; p++) if (mask[p] < 255 && dist[p] > reach) mask[p] = 255
+  return mask
 }

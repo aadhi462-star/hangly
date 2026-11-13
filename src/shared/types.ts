@@ -60,6 +60,8 @@ export interface HangingConfig {
   rotation: number
   returnToTop: boolean
   idleSway: boolean
+  /** Where the thread is tied: the very top of the screen, or just below the menu bar. */
+  anchorFrom: 'screen' | 'menubar'
 }
 
 export interface AnimationFrame {
