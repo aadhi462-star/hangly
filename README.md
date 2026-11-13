@@ -2,6 +2,8 @@
 
 *A little life on your desktop.*
 
+> 🌱 **A budding idea.** Screenly is an early-stage project, not a finished product. Take the code and enhance it with your own creativity: add characters, invent new behaviours, give it a new look, or take it somewhere completely different. Have fun with it, and happy developing! 🐾
+
 **The name:** *Screen* + *-ly*, the English ending that turns a thing into a quality, as in *lively* or *friendly*. Screenly is what your screen becomes when characters live on it: lively. The characters belong to the screen, standing on your windows, hanging from the top edge and walking along the Dock.
 
 Screenly puts animated animals and your own characters on your Mac. They walk along the bottom of the screen, hang from the top edge on a thread, swing, fly between windows and climb the screen edges. The overlay is click-through, so the characters never get in the way of your work.
