@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Section, Slider, Toggle } from '../control/ui'
 import { FrameThumb } from './ImportStep'
 import { ImageEditor, type Tool } from './ImageEditor'
-import { crop, erodeEdges, featherEdges, flip, hasTransparentBorder, opaqueBounds, removeBackground, resize, rotate, type Rect } from './imageOps'
+import { crop, defringe, erodeEdges, featherEdges, flip, hasTransparentBorder, opaqueBounds, removeBackground, resize, rotate, type Rect } from './imageOps'
 import { applyGeometry, pushHistory, redo, resetFrame, undo, type StudioDoc, type StudioFrame } from './model'
 
 interface Props {
@@ -61,6 +61,7 @@ export function PrepareStep({ doc, selected, onSelect, onChange }: Props): React
         }
         pushHistory(f)
         total += removeBackground(f.work, tolerance, softness)
+        defringe(f.work, 2)
       }
       const n = targets().length - skipped
       setNotice(
@@ -105,6 +106,7 @@ export function PrepareStep({ doc, selected, onSelect, onChange }: Props): React
             pushHistory(frame)
             const cleared = removeBackground(frame.work, tolerance, softness, pt)
             if (cleared === 0) frame.history.undo.pop()
+            else defringe(frame.work, 2)
             setNotice(cleared === 0 ? 'Nothing to clear there. Click inside a background area.' : 'Cleared that area. Undo if it took too much.')
             changed()
           }}
@@ -193,6 +195,7 @@ export function PrepareStep({ doc, selected, onSelect, onChange }: Props): React
         <Section title="Refine edges">
           <div className="row gap wrap">
             <button className="btn small" onClick={() => heavy('Refining…', () => targets().forEach((f) => { pushHistory(f); erodeEdges(f.work, 1) }))}>Shrink edge 1px</button>
+            <button className="btn small" onClick={() => heavy('Cleaning edges…', () => targets().forEach((f) => { pushHistory(f); defringe(f.work, 2) }))}>Clean edge colour</button>
             <button className="btn small" onClick={() => heavy('Feathering…', () => targets().forEach((f) => { pushHistory(f); featherEdges(f.work, 2) }))}>Feather 2px</button>
           </div>
         </Section>

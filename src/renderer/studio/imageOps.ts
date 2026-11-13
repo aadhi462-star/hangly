@@ -208,6 +208,70 @@ export function removeBackground(c: HTMLCanvasElement, tolerance: number, softne
   return removed / (w * h)
 }
 
+/**
+ * Remove colour fringes (the light or dark halo left from the old background).
+ * Pixels within `radius` of transparency take the average colour of solid
+ * pixels just inside them; their alpha is kept, so the edge stays smooth.
+ */
+export function defringe(c: HTMLCanvasElement, radius = 2): void {
+  const { width: w, height: h } = c
+  const g = ctx2d(c)
+  const img = g.getImageData(0, 0, w, h)
+  const d = img.data
+  // Distance (in steps) from the nearest mostly-transparent pixel, capped.
+  const cap = radius + 3
+  const dist = new Uint8Array(w * h).fill(cap)
+  const queue = new Int32Array(w * h)
+  let head = 0
+  let tail = 0
+  for (let p = 0; p < w * h; p++) {
+    if (d[p * 4 + 3] < 128) {
+      dist[p] = 0
+      queue[tail++] = p
+    }
+  }
+  while (head < tail) {
+    const p = queue[head++]
+    const nd = dist[p] + 1
+    if (nd >= cap) continue
+    const x = p % w
+    const ns = [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, p - w, p + w]
+    for (const q of ns) {
+      if (q < 0 || q >= w * h || dist[q] <= nd) continue
+      dist[q] = nd
+      queue[tail++] = q
+    }
+  }
+  const src = new Uint8ClampedArray(d)
+  const win = radius + 2
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const p = y * w + x
+      if (src[p * 4 + 3] === 0 || dist[p] > radius) continue
+      let r = 0, gg = 0, b = 0, n = 0
+      for (let dy = -win; dy <= win; dy++) {
+        const yy = y + dy
+        if (yy < 0 || yy >= h) continue
+        for (let dx = -win; dx <= win; dx++) {
+          const xx = x + dx
+          if (xx < 0 || xx >= w) continue
+          const q = yy * w + xx
+          if (dist[q] <= radius || src[q * 4 + 3] < 250) continue
+          r += src[q * 4]
+          gg += src[q * 4 + 1]
+          b += src[q * 4 + 2]
+          n++
+        }
+      }
+      if (!n) continue
+      d[p * 4] = r / n
+      d[p * 4 + 1] = gg / n
+      d[p * 4 + 2] = b / n
+    }
+  }
+  g.putImageData(img, 0, 0)
+}
+
 /** Shrink the opaque region by `px` (removes coloured fringes left from the old background). */
 export function erodeEdges(c: HTMLCanvasElement, px: number): void {
   const { width: w, height: h } = c
