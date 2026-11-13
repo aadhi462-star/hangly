@@ -33,6 +33,8 @@ export interface Rig {
   view: 'side' | 'top'
   /** Gait cycles per second when walking at animation speed 1. */
   gaitHz: number
+  /** Draws its own head-down eating pose (others show a happy face while eating). */
+  eats?: boolean
   /** For hang-origin rigs that can also fly: the body centre's y while flying. */
   flyCenterY?: number
   draw(g: Graphics, p: Pose): void
@@ -136,6 +138,7 @@ function quadruped(spec: QuadSpec): Rig {
     groundOffset: 0,
     view: 'side',
     gaitHz: S.hop ? 1.6 : 1.4,
+    eats: true,
     draw(g, p) {
       const st = p.state
       const moving = st === 'walking' || st === 'running' || st === 'climbing'
@@ -152,6 +155,13 @@ function quadruped(spec: QuadSpec): Rig {
       if (moving && !S.hop) bodyCy -= abs(sin(p.phase)) * (run ? 3 : 1.5)
       if (moving && S.hop) bodyCy -= abs(sin(p.phase)) * S.legLen * 0.7
       if (st === 'looking') headTilt = sin(p.t * 1.3) * 0.25
+      if (st === 'eating') {
+        // Head down at the food, chewing with small dips.
+        bodyRot = 0.1
+        headX = S.bodyRx * 1.18
+        headY = -S.headR * 1.05 - abs(sin(p.t * 9)) * 1.8
+        headTilt = 0.55
+      }
       if (st === 'stretching') {
         bodyRot = 0.28
         headY += S.bodyRy * 0.9

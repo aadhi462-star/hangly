@@ -185,7 +185,8 @@ export function newInstance(def: CharacterDefinition, displayId: number, workWid
     paused: false,
     hidden: false,
     muted: false,
-    addedAt: Date.now()
+    addedAt: Date.now(),
+    lastFed: 0
   }
 }
 

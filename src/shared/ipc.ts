@@ -38,6 +38,10 @@ export interface ScreenlyApi {
   onStatus(cb: (s: InstanceStatus[]) => void): () => void
   onDisplays(cb: (d: DisplayInfo[]) => void): () => void
   onNavigate(cb: (page: Page) => void): () => void
+  /** Main asks the panel to open a character's Customise panel. */
+  onEdit(cb: (instanceId: string) => void): () => void
+  /** Put back a character that was just removed (Undo). */
+  restoreInstance(instance: CharacterInstance): Promise<Result>
   onShortcutErrors(cb: (e: Record<string, string>) => void): () => void
 
   addInstance(characterId: string, displayId?: number): Promise<Result<string>>
@@ -81,6 +85,10 @@ export interface ScreenlyApi {
     onFeed(cb: (req: { instanceId: string; foodId: string }) => void): () => void
     /** Window rectangles in global coordinates, front to back. */
     onSurfaces(cb: (rects: { id: number; x: number; y: number; w: number; h: number }[]) => void): () => void
+    /** Show the character's right-click menu (built and handled in main). */
+    menu(instanceId: string): void
+    /** Tell main a character finished eating. */
+    fed(instanceId: string): void
     /** Ask main to switch a character's behaviour after a drop (validated in main). */
     adapt(instanceId: string, behaviour: Behaviour, x: number, y: number): void
     setInteractive(interactive: boolean): void

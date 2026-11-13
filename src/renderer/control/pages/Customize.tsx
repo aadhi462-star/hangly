@@ -1,9 +1,9 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { BEHAVIOUR_LABELS, STATE_LABELS } from '../../../shared/defaults'
 import { foodsFor } from '../../../shared/food'
 import type { DeepPartial } from '../../../shared/ipc'
 import type { Behaviour, CharacterInstance } from '../../../shared/types'
-import { api, findCharacter, run, useUi } from '../store'
+import { api, findCharacter, removeWithUndo, run, useUi } from '../store'
 import { Icon, Segmented, Slider, Thumb, Toggle, pct } from '../ui'
 import { HangingControls } from './HangingControls'
 import { HangingPlace } from './HangingPlace'
@@ -24,6 +24,13 @@ export function Customize({ instanceId }: { instanceId: string }): ReactNode {
   const st = useUi((s) => s.status[instanceId])
   const close = (): void => useUi.getState().edit(null)
   const [tab, setTab] = useState<Tab>('appearance')
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') close()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   const inst = app.instances.find((i) => i.instanceId === instanceId)
   const def = inst && findCharacter(app, inst.characterId)
   if (!inst || !def) return null
@@ -78,7 +85,7 @@ export function Customize({ instanceId }: { instanceId: string }): ReactNode {
             <button className="btn small" onClick={() => void run(api.duplicateInstance(instanceId), 'Duplicated')}>
               <Icon name="copy" /> Duplicate
             </button>
-            <button className="btn small danger" onClick={() => { void api.removeInstance(instanceId); close() }}>
+            <button className="btn small danger" onClick={() => { void removeWithUndo(instanceId); close() }}>
               <Icon name="trash" /> Remove
             </button>
           </div>

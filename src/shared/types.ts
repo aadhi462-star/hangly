@@ -162,6 +162,8 @@ export interface CharacterInstance {
   hidden: boolean
   muted: boolean
   addedAt: number
+  /** When it last finished eating (ms since epoch), 0 if never. */
+  lastFed: number
 }
 
 export interface Shortcuts {

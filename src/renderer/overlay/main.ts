@@ -18,8 +18,12 @@ const stage = new Stage({
   resolve: (def, path) => characterAssetUrl(def, path),
   onStatus: (s) => api.overlay.reportStatus(s),
   onDragEnd: (s) => api.overlay.reportStatus([s]),
-  onHoverChange: (h) => api.overlay.setInteractive(h),
-  onAdapt: (id, behaviour, x, y) => api.overlay.adapt(id, behaviour, x, y)
+  onHoverChange: (h) => {
+    api.overlay.setInteractive(h)
+    if (!stage.isPressing()) stage.app.canvas.style.cursor = h ? 'grab' : ''
+  },
+  onAdapt: (id, behaviour, x, y) => api.overlay.adapt(id, behaviour, x, y),
+  onFed: (id) => api.overlay.fed(id)
 })
 
 /** App windows in this overlay's canvas coordinates (global → window-local). */
@@ -76,16 +80,22 @@ async function start(): Promise<void> {
   // Real pointer events only arrive while main has made this window interactive.
   const canvas = stage.app.canvas
   canvas.addEventListener('pointerdown', (e) => {
-    if (stage.pointerDown(e.clientX, e.clientY)) canvas.setPointerCapture(e.pointerId)
+    if (e.button !== 0) return
+    if (stage.pointerDown(e.clientX, e.clientY)) {
+      canvas.setPointerCapture(e.pointerId)
+      canvas.style.cursor = 'grabbing'
+    }
   })
   canvas.addEventListener('pointermove', (e) => stage.pointerMove(e.clientX, e.clientY))
   canvas.addEventListener('pointerup', (e) => {
     stage.pointerUp(e.clientX, e.clientY)
+    canvas.style.cursor = stage.hitAt(e.clientX, e.clientY) ? 'grab' : ''
     if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId)
   })
   canvas.addEventListener('contextmenu', (e) => {
     e.preventDefault()
-    stage.feedAt(e.clientX, e.clientY)
+    const id = stage.hitAt(e.clientX, e.clientY)
+    if (id) api.overlay.menu(id)
   })
   api.overlay.onFeed(({ instanceId, foodId }) => {
     const food = FOODS[foodId]

@@ -1,4 +1,4 @@
-import { BrowserWindow, app, globalShortcut, ipcMain, nativeTheme, shell, type IpcMainInvokeEvent } from 'electron'
+import { BrowserWindow, Menu, app, globalShortcut, ipcMain, nativeTheme, shell, type IpcMainInvokeEvent } from 'electron'
 import { join } from 'node:path'
 import { BUILT_IN_CHARACTERS, DEFAULT_HANGING, newInstance } from '../shared/defaults'
 import { foodsFor } from '../shared/food'
@@ -284,6 +284,19 @@ function registerIpc(): void {
     return ok()
   })
 
+  handle('instance:restore', (_e, raw: CharacterInstance) => {
+    if (!raw || typeof raw.instanceId !== 'string' || !findDef(str(raw.characterId))) return { ok: false, error: 'Cannot restore' }
+    if (instance(raw.instanceId)) return ok()
+    if (store.state.instances.length >= store.state.settings.maxCharacters) return { ok: false, error: 'Character limit reached.' }
+    const def = findDef(raw.characterId)!
+    // Rebuild from a fresh instance so only known, valid fields come back.
+    const base = newInstance(def, raw.displayId, workArea(raw.displayId).width)
+    const restored = mergeKnown({ ...base, instanceId: raw.instanceId.slice(0, 64) }, { ...raw, instanceId: undefined, characterId: undefined })
+    restored.positionVersion++
+    store.mutate((s) => void s.instances.push(restored))
+    return ok()
+  })
+
   handle('instance:remove', (_e, id: string) => {
     store.mutate((s) => void (s.instances = s.instances.filter((i) => i.instanceId !== id)))
     return ok()
@@ -463,6 +476,38 @@ function registerIpc(): void {
       t.x = x
       t.y = y
       t.positionVersion++
+    })
+  })
+  ipcMain.on('overlay:menu', (e, id: unknown) => {
+    if (!overlays.isOverlay(e.sender)) return
+    const i = instance(str(id))
+    const def = i && findDef(i.characterId)
+    if (!i || !def) return
+    const set = (patch: DeepPartial<CharacterInstance>): void =>
+      store.mutate((s) => void (s.instances = s.instances.map((v) => (v.instanceId === i.instanceId ? mergeKnown(v, patch) : v))))
+    Menu.buildFromTemplate([
+      { label: def.name, enabled: false },
+      { type: 'separator' },
+      { label: 'Feed', submenu: foodsFor(def).map((f) => ({ label: `${f.emoji}  ${f.name}`, click: () => feed(i.instanceId, f.id) })) },
+      { label: i.paused ? 'Resume' : 'Pause', click: () => set({ paused: !i.paused }) },
+      {
+        label: 'Customise…',
+        click: () => {
+          openControl()
+          // Give a freshly opened panel a moment to load before asking it to open the drawer.
+          setTimeout(() => sendControl('edit', i.instanceId), control?.webContents.isLoading() ? 900 : 0)
+        }
+      },
+      { type: 'separator' },
+      { label: 'Hide', click: () => set({ hidden: true }) },
+      { label: 'Remove from desktop', click: () => store.mutate((s) => void (s.instances = s.instances.filter((v) => v.instanceId !== i.instanceId))) }
+    ]).popup({ window: BrowserWindow.fromWebContents(e.sender) ?? undefined })
+  })
+  ipcMain.on('overlay:fed', (e, id: unknown) => {
+    if (!overlays.isOverlay(e.sender)) return
+    store.mutate((s) => {
+      const t = s.instances.find((v) => v.instanceId === str(id))
+      if (t) t.lastFed = Date.now()
     })
   })
   ipcMain.on('overlay:ready', (e) => {

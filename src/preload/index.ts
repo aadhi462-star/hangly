@@ -21,6 +21,8 @@ const api: ScreenlyApi = {
   onStatus: (cb) => on('status', cb),
   onDisplays: (cb) => on('displays', cb),
   onNavigate: (cb) => on('nav', cb),
+  onEdit: (cb) => on('edit', cb),
+  restoreInstance: (inst) => inv('instance:restore', inst),
   onShortcutErrors: (cb) => on('shortcut-errors', cb),
 
   addInstance: (id, displayId) => inv('instance:add', id, displayId),
@@ -60,6 +62,8 @@ const api: ScreenlyApi = {
     onCursor: (cb) => on('overlay:cursor', cb),
     onSurfaces: (cb) => on('overlay:surfaces', cb),
     onFeed: (cb) => on('overlay:feed', cb),
+    fed: (id) => ipcRenderer.send('overlay:fed', id),
+    menu: (id) => ipcRenderer.send('overlay:menu', id),
     adapt: (id, behaviour, x, y) => ipcRenderer.send('overlay:adapt', id, behaviour, x, y),
     setInteractive: (v) => ipcRenderer.send('overlay:interactive', v),
     reportStatus: (s) => ipcRenderer.send('overlay:status', s),

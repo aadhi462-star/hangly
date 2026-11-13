@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BEHAVIOUR_LABELS, BUILT_IN_CHARACTERS } from '../../../shared/defaults'
 import type { CharacterCategory, CharacterDefinition } from '../../../shared/types'
 import { allCharacters, api, run, useUi } from '../store'
@@ -18,6 +18,18 @@ export function Library(): ReactNode {
   const [cat, setCat] = useState<'all' | CharacterCategory>('all')
   const [q, setQ] = useState('')
   const [showHidden, setShowHidden] = useState(false)
+  const search = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    // "/" jumps to search, like most apps with a list to filter.
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === '/' && !(e.target instanceof HTMLInputElement)) {
+        e.preventDefault()
+        search.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   const { openStudio, edit } = useUi.getState()
 
   const chars = allCharacters(app, showHidden).filter(
@@ -52,7 +64,7 @@ export function Library(): ReactNode {
       />
       <div className="toolbar">
         <Segmented value={cat} options={CATS} onChange={setCat} />
-        <input className="search" placeholder="Search characters" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input ref={search} className="search" placeholder="Search characters  /" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
 
       {chars.length === 0 ? (

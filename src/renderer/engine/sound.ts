@@ -4,7 +4,7 @@ import type { RigId } from '../../shared/types'
  * Tiny synthesised sound effects (Web Audio), so no audio files are shipped.
  * Sounds are off by default and gated by the global + per-character settings.
  */
-export type SoundKind = 'meow' | 'woof' | 'chirp' | 'squeak' | 'purr' | 'flutter' | 'pop'
+export type SoundKind = 'meow' | 'woof' | 'chirp' | 'squeak' | 'purr' | 'flutter' | 'pop' | 'crunch'
 
 export const RIG_SOUNDS: Partial<Record<RigId, { interact: SoundKind; idle?: SoundKind; move?: SoundKind }>> = {
   cat: { interact: 'meow', idle: 'purr' },
@@ -98,6 +98,11 @@ export function play(kind: SoundKind, volume: number): void {
         break
       case 'flutter':
         noise(0.25, v * 0.6, 40, 1800)
+        break
+      case 'crunch':
+        // A short, dry chew: two quick bursts of filtered noise.
+        noise(0.07, v * 1.6, 90, 2600)
+        setTimeout(() => noise(0.06, v * 1.2, 70, 2200), 90)
         break
       case 'pop':
         tone('triangle', [[0, 600], [1, 1100]], 0.08, v * 0.8)

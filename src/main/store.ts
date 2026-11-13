@@ -182,6 +182,7 @@ export function sanitizeInstance(i: CharacterInstance): CharacterInstance {
   if (!COLOR.test(h.threadColor)) h.threadColor = DEFAULT_HANGING.threadColor
   if (h.anchorFrom !== 'screen' && h.anchorFrom !== 'menubar') h.anchorFrom = 'screen'
   if (!BEHAVIOURS.includes(i.behaviour)) i.behaviour = 'stationary'
+  if (typeof i.lastFed !== 'number' || !Number.isFinite(i.lastFed)) i.lastFed = 0
   if (!Number.isFinite(i.x)) i.x = 100
   if (!Number.isFinite(i.y)) i.y = 0
   return i

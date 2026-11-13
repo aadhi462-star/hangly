@@ -1,5 +1,5 @@
 import { ColorMatrixFilter, Container, Graphics, Sprite, Text, type Texture } from 'pixi.js'
-import type { Food } from '../../shared/food'
+import { foodsFor, isHungry, type Food } from '../../shared/food'
 import type {
   Behaviour,
   CharState,
@@ -30,6 +30,8 @@ export interface World {
   entities: Entity[]
   /** Top edges characters can stand on: app windows, front to back, in work-area px. */
   surfaces: Surface[]
+  /** Called after a character finishes eating (to remember when it was fed). */
+  onFed: ((e: Entity) => void) | null
   /** Switch behaviour to suit the spot a character was dropped on. */
   adapt: ((e: Entity, behaviour: Behaviour, x: number, y: number) => void) | null
 }
@@ -83,7 +85,23 @@ export class Entity {
   private readonly fx = new Graphics()
   readonly thread = new Graphics()
   /** The food being offered, drawn in work-area space (added to the stage by Stage). */
-  readonly foodView = new Text({ text: '', style: { fontSize: 32 } })
+  readonly foodView = new Container()
+  private readonly foodEmoji = new Text({ text: '', style: { fontSize: 32 } })
+  /** Bite marks: an inverse mask that removes bitten-off parts of the food. */
+  private readonly biteMask = new Graphics()
+  private readonly crumbsGfx = new Graphics()
+  /** "I'm hungry" thought bubble with the favourite food. */
+  private readonly bubble = new Container()
+  private bubbleT = -1
+  // Feel: hover and lift easing, drag swing, landing squash and dust.
+  private hovered = false
+  private hoverK = 0
+  private liftK = 0
+  private dragVx = 0
+  private squashT = -1
+  private squashAmt = 0
+  private dust: { x: number; vx: number; t: number }[] = []
+  private bubbleIn = rand(20, 60)
   private gfx: Graphics | null = null
   private sprite: Sprite | null = null
   private rig: Rig | null = null
@@ -122,7 +140,21 @@ export class Entity {
   private jumpT = -1
   private hearts: { x: number; y: number; t: number }[] = []
   private dragging = false
-  private food: { item: Food; x: number; y: number; vy: number; landed: boolean; age: number } | null = null
+  private food: {
+    item: Food
+    x: number
+    y: number
+    vy: number
+    landed: boolean
+    age: number
+    /** For prey: where it started, to wander around; and its own velocity. */
+    homeX: number
+    homeY: number
+    vx: number
+    bites: number
+    size: number
+  } | null = null
+  private crumbs: { x: number; y: number; vx: number; vy: number; t: number; c: number }[] = []
   private lastPointer = { x: 0, y: 0 }
   /** Window the character is standing on, and that window's x last frame (to ride along). */
   private standingOn: number | null = null
@@ -144,7 +176,8 @@ export class Entity {
   constructor(inst: CharacterInstance, def: CharacterDefinition, private resolve: AssetResolver) {
     this.inst = inst
     this.def = def
-    this.root.addChild(this.shadow, this.body, this.fx)
+    this.root.addChild(this.shadow, this.body, this.fx, this.bubble)
+    this.bubble.visible = false
     this.setDefinition(def)
   }
 
@@ -298,6 +331,7 @@ export class Entity {
       }
       this.advanceGait(dt)
       this.maybeIdleSound(dt, w)
+      this.tickHungerBubble(dt)
     } else if (!this.dragging) {
       // Paused characters don't act on their own, but still obey physics after
       // you move them: dropped ones fall and land, hanging ones swing to rest.
@@ -336,6 +370,16 @@ export class Entity {
       this.blinkIn = rand(2.5, 6)
     }
     this.blinkT = Math.max(0, this.blinkT - dt)
+  }
+
+  private impact(strength: number): void {
+    this.squashT = 0
+    this.squashAmt = 0.1 + strength * 0.16
+    for (let k = 0; k < 8; k++) this.dust.push({ x: rand(-0.3, 0.3) * this.size.w, vx: (k % 2 ? 1 : -1) * rand(30, 90) * (0.6 + strength), t: 0 })
+  }
+
+  setHover(on: boolean): void {
+    this.hovered = on
   }
 
   /** Physics only (no behaviour): used while paused. */
@@ -399,6 +443,8 @@ export class Entity {
       this.y += this.vy * dt
       if (this.y >= target.y) {
         this.y = target.y
+        // A hard landing squashes the body and kicks up a little dust.
+        if (this.vy > 320) this.impact(Math.min(1, this.vy / 1400))
         this.vy = 0
         this.standingOn = target.surface?.id ?? null
         this.standX = target.surface?.x ?? 0
@@ -751,6 +797,8 @@ export class Entity {
 
   dragTo(px: number, py: number, w: World): void {
     if (!this.dragging) return
+    // Smoothed horizontal speed, used to swing the character as you carry it.
+    this.dragVx = this.dragVx * 0.7 + (px - this.lastPointer.x) * 60 * 0.3
     this.lastPointer = { x: px, y: py }
     const x = px + this.dragOff.x
     const y = py + this.dragOff.y
@@ -837,37 +885,84 @@ export class Entity {
     let y = this.y
     let landed = true
     if (b === 'walk') {
-      x = clamp(this.x + side * rand(160, 280), 40, w.w - 40)
+      x = clamp(this.x + side * rand(170, 300), 40, w.w - 40)
       y = -40
       landed = false
     } else if (b === 'stationary') {
-      x = clamp(this.x + this.dir * (this.size.w * 0.5 + 18), 20, w.w - 20)
+      x = clamp(this.x + this.dir * (this.size.w * 0.5 + 20), 20, w.w - 20)
       y = Math.max(-40, this.y - 300)
       landed = false
     } else if (b === 'fly') {
+      // Ground prey (a mouse) runs along the bottom; anything else appears mid-air.
       x = rand(80, w.w - 80)
-      y = rand(w.h * 0.25, w.h * 0.7)
+      y = item.prey === 'scurry' || item.prey === 'hop' || item.prey === 'wriggle' ? this.groundY(w) : rand(w.h * 0.25, w.h * 0.7)
     } else if (b === 'climb') {
       x = this.edge === 'left' ? this.size.h * 0.9 : w.w - this.size.h * 0.9
       y = clamp(this.y + side * rand(120, 220), 40, w.h - 40)
     } else if (b === 'hang') {
-      x = this.x + side * (this.size.w * 0.8 + 16)
+      x = this.x + side * (this.size.w * 0.9 + 24)
       y = this.y + this.size.h * 0.5
     }
     const size = clamp(this.size.h * 0.36, 28, 60)
-    this.foodView.text = item.emoji
-    this.foodView.style.fontSize = size
-    this.foodView.anchor.set(0.5, landed ? 0.5 : 1)
+    this.foodEmoji.text = item.emoji
+    this.foodEmoji.style.fontSize = size
+    this.foodEmoji.anchor.set(0.5, 1)
+    if (!this.foodView.children.length) {
+      this.foodView.addChild(this.foodEmoji, this.biteMask, this.crumbsGfx)
+      this.foodEmoji.setMask({ mask: this.biteMask, inverse: true })
+    }
+    this.biteMask.clear()
+    // An inverse mask needs some shape to start from; this one is outside the food.
+    this.biteMask.rect(-9999, -9999, 1, 1).fill(0xffffff)
+    this.crumbs = []
     this.foodView.visible = true
     this.foodView.alpha = 1
-    this.foodView.scale.set(1)
-    this.food = { item, x, y, vy: 0, landed, age: 0 }
+    this.food = { item, x, y, vy: 0, landed, age: 0, homeX: x, homeY: y, vx: 0, bites: 0, size }
     if (this.state === 'sleeping' || this.state === 'eating') this.setState('idle', 0.2)
+  }
+
+  /** Live prey moves on its own until it is caught. */
+  private movePrey(dt: number, w: World): void {
+    const f = this.food!
+    if (!f.item.prey || !f.landed || this.state === 'eating') return
+    const t = f.age
+    switch (f.item.prey) {
+      case 'buzz': {
+        // Erratic hovering loops around where it appeared.
+        f.x = f.homeX + Math.sin(t * 2.3) * 70 + Math.sin(t * 7.1) * 14
+        f.y = f.homeY + Math.cos(t * 1.7) * 40 + Math.sin(t * 9.3) * 8
+        break
+      }
+      case 'scurry': {
+        // Runs away from the hunter, turning back at the screen edges.
+        const away = f.x >= this.x ? 1 : -1
+        if (!f.vx || Math.abs(f.x - this.x) < 260) f.vx = away * 150
+        f.x += f.vx * dt
+        if (f.x < 30 || f.x > w.w - 30) {
+          f.vx = -f.vx
+          f.x = clamp(f.x, 30, w.w - 30)
+        }
+        break
+      }
+      case 'hop': {
+        const phase = t % 1.4
+        if (phase < 0.35) {
+          f.x += (f.x >= this.x ? 1 : -1) * 160 * dt
+          f.y = f.homeY - Math.sin((phase / 0.35) * Math.PI) * 36
+        } else f.y = f.homeY
+        f.x = clamp(f.x, 30, w.w - 30)
+        break
+      }
+      case 'wriggle':
+        f.x += Math.sin(t * 3) * 12 * dt
+        break
+    }
   }
 
   /** Runs the food routine. Returns true while the character is busy eating (no other movement). */
   private updateFood(dt: number, w: World): boolean {
     const f = this.food
+    this.updateCrumbs(dt)
     if (!f) return false
     f.age += dt
     if (!f.landed) {
@@ -878,36 +973,58 @@ export class Entity {
       if (f.y >= below.y + this.footOffset()) {
         f.y = below.y + this.footOffset()
         f.landed = true
+        f.homeX = f.x
+        f.homeY = f.y
+        this.dropCrumbs(2)
       }
     }
+    this.movePrey(dt, w)
     if (this.state === 'eating') {
+      // A caught meal goes with the hunter: held at the mouth while hanging, flying or climbing.
+      const b0 = this.inst.behaviour
+      if (b0 === 'hang') {
+        f.x = this.x + Math.sin(this.theta) * this.size.h * 0.6
+        f.y = this.y + Math.cos(this.theta) * this.size.h * 0.6 + f.size * 0.3
+      } else if (b0 === 'fly' || b0 === 'climb') {
+        f.x = this.x + this.dir * this.size.w * 0.3
+        f.y = this.y + this.size.h * 0.25
+      }
+      // Four bites; each takes a chunk out of the food and drops crumbs.
+      const bite = Math.min(4, Math.floor((this.stateTime / this.stateDur) * 4.4))
+      while (f.bites < bite) this.takeBite(w)
       if (this.stateTime >= this.stateDur) this.finishEating(w)
       return true
     }
-    if (f.age > 16) {
-      // Not reached in time: let it fade away.
+    if (f.age > (f.item.prey ? 24 : 16)) {
+      // Not reached in time: prey escapes, food fades away.
       this.food = null
       this.foodView.visible = false
       return false
     }
     if (!f.landed) return false
-    const reach = this.size.w * 0.5 + 18
+    const reach = this.size.w * 0.5 + 16
     const b = this.inst.behaviour
     if (b === 'walk') {
       const dx = f.x - this.x
       if (Math.abs(dx) <= reach && this.state !== 'landing') return this.startEating(w)
       this.dir = dx > 0 ? 1 : -1
-      if (this.state !== 'walking' && this.state !== 'running' && this.state !== 'landing') this.setState(Math.abs(dx) > 260 ? 'running' : 'walking', 999)
+      // Runs when far, slows to a careful walk for the last stretch.
+      const want: CharState = Math.abs(dx) > 260 || f.item.prey ? 'running' : 'walking'
+      if (this.state !== want && this.state !== 'landing') this.setState(want, 999)
       this.willStepOff = true // follow the food off a window ledge if needed
-    } else if (b === 'stationary' || b === 'hang') {
-      if (b === 'hang' && f.age < 0.5) this.omega += Math.sign(f.x - this.x) * 3 * dt
+    } else if (b === 'stationary') {
       if (f.age > 0.6) return this.startEating(w)
+    } else if (b === 'hang') {
+      // Swing towards it and grab it when close enough.
+      const dx = f.x - this.x
+      this.omega += Math.sign(dx) * 2.2 * dt
+      if (Math.hypot(dx, f.y - this.y - this.size.h * 0.4) <= reach + 10 || (!f.item.prey && f.age > 1.4)) return this.startEating(w)
     } else if (b === 'fly') {
       this.perched = false
       this.tx = f.x
-      this.ty = f.y
+      this.ty = f.y - (f.item.prey === 'scurry' ? this.size.h * 0.3 : 0)
       if (this.state !== 'flying') this.setState('flying', 999)
-      if (Math.hypot(f.x - this.x, f.y - this.y) <= reach) return this.startEating(w)
+      if (Math.hypot(f.x - this.x, f.y - this.y) <= reach + 8) return this.startEating(w)
     } else if (b === 'climb') {
       const dy = f.y - this.y
       if (Math.abs(dy) <= reach) return this.startEating(w)
@@ -920,23 +1037,94 @@ export class Entity {
   private startEating(w: World): boolean {
     if (this.food) this.dir = this.food.x >= this.x ? 1 : -1
     this.vx = this.vy = 0
-    this.setState('eating', 2.6)
-    const s = this.def.rig ? RIG_SOUNDS[this.def.rig] : undefined
-    this.sound(s?.interact ?? 'pop', w)
+    this.setState('eating', 3.2)
+    void w
     return true
+  }
+
+  /** One bite: a scalloped chunk disappears from the side facing the eater, with crumbs and a crunch. */
+  private takeBite(w: World): void {
+    const f = this.food!
+    f.bites++
+    const s = f.size
+    const side = this.x <= f.x ? -1 : 1
+    // Bites eat inwards from the near side.
+    const cx = side * s * (0.55 - f.bites * 0.22)
+    const cy = -s * 0.5
+    const r = s * 0.3
+    for (const [ox, oy] of [[0, -r * 0.6], [side * r * 0.25, 0], [0, r * 0.6]]) this.biteMask.circle(cx + ox, cy + oy, r * 0.62)
+    this.biteMask.fill(0xffffff)
+    this.dropCrumbs(f.bites >= 4 ? 8 : 5)
+    if (!this.inst.muted && w.volume > 0) play('crunch', w.volume * 0.8)
+  }
+
+  private dropCrumbs(n: number): void {
+    const f = this.food
+    if (!f) return
+    for (let k = 0; k < n; k++) {
+      this.crumbs.push({ x: rand(-f.size * 0.3, f.size * 0.3), y: -f.size * rand(0.3, 0.7), vx: rand(-60, 60), vy: rand(-120, -20), t: 0, c: f.item.crumbs })
+    }
+  }
+
+  private updateCrumbs(dt: number): void {
+    if (!this.crumbs.length) return
+    for (const c of this.crumbs) {
+      c.t += dt
+      c.vy += 900 * dt
+      c.x += c.vx * dt
+      c.y = Math.min(0, c.y + c.vy * dt)
+      if (c.y === 0) c.vx *= 0.8
+    }
+    this.crumbs = this.crumbs.filter((c) => c.t < 1.6)
   }
 
   private finishEating(w: World): void {
     this.food = null
-    this.foodView.visible = false
     for (let k = 0; k < 3; k++) this.hearts.push({ x: rand(-14, 14), y: -this.size.h * (0.8 + k * 0.12), t: -k * 0.25 })
+    // Keep showing the last crumbs settling; hide the (now eaten) food itself.
+    this.foodEmoji.visible = false
+    setTimeout(() => {
+      if (!this.food) this.foodView.visible = false
+      this.foodEmoji.visible = true
+    }, 1600)
+    w.onFed?.(this)
+    const s = this.def.rig ? RIG_SOUNDS[this.def.rig] : undefined
+    if (s?.idle) this.sound(s.idle, w)
     const canSit = this.rig?.origin === 'feet' && (this.inst.behaviour === 'walk' || this.inst.behaviour === 'stationary')
     this.setState(canSit ? 'sitting' : 'idle', this.idleDur(w, 2, 3.5))
   }
 
-  /** Food can be offered only while visible; used to report whether a feed did anything. */
   isEating(): boolean {
     return !!this.food
+  }
+
+  /** A hungry character now and then thinks about its favourite food. */
+  private tickHungerBubble(dt: number): void {
+    if (this.bubbleT >= 0) {
+      this.bubbleT += dt
+      if (this.bubbleT > 4 || this.food) {
+        this.bubbleT = -1
+        this.bubble.visible = false
+      }
+      return
+    }
+    this.bubbleIn -= dt
+    if (this.bubbleIn > 0) return
+    this.bubbleIn = rand(90, 200)
+    if (!isHungry(this.inst) || this.food || this.dragging) return
+    const fav = foodsFor(this.def)[0]
+    if (!fav) return
+    this.bubble.removeChildren().forEach((c) => c.destroy())
+    const g = new Graphics()
+    g.roundRect(-24, -24, 48, 40, 18).fill({ color: 0xffffff, alpha: 0.95 }).stroke({ width: 1, color: 0x000000, alpha: 0.12 })
+    g.circle(-14, 22, 5).fill({ color: 0xffffff, alpha: 0.95 })
+    g.circle(-20, 31, 3).fill({ color: 0xffffff, alpha: 0.95 })
+    const t = new Text({ text: fav.emoji, style: { fontSize: 22 } })
+    t.anchor.set(0.5)
+    t.position.set(0, -4)
+    this.bubble.addChild(g, t)
+    this.bubble.visible = true
+    this.bubbleT = 0
   }
 
   interact(w: World, kind: 'click' | 'pet' = 'click'): void {
@@ -1021,17 +1209,32 @@ export class Entity {
 
     // Jump offset applies to the body only so the shadow stays on the ground.
     const jump = this.jumpT >= 0 ? -Math.sin((this.jumpT / 0.55) * Math.PI) * this.size.h * 0.35 : 0
-    const sx = (ap.flipX ? -1 : 1) * flip
+    // Feel: ease hover/lift in and out, decay the landing squash.
+    const ease = Math.min(1, (dt || 0.016) * 12)
+    this.hoverK += ((this.hovered && !this.dragging ? 1 : 0) - this.hoverK) * ease
+    this.liftK += ((this.dragging ? 1 : 0) - this.liftK) * ease
+    if (!this.dragging) this.dragVx *= 0.85
+    let fx = 1 + this.hoverK * 0.04 + this.liftK * 0.08
+    let fy = fx
+    if (this.squashT >= 0) {
+      this.squashT += dt || 0.016
+      const k = Math.max(0, 1 - this.squashT / 0.32)
+      const wobble = Math.cos(this.squashT * 28) * k
+      fy *= 1 - this.squashAmt * wobble
+      fx *= 1 + this.squashAmt * 0.8 * wobble
+      if (k === 0) this.squashT = -1
+    }
+    const sx = (ap.flipX ? -1 : 1) * flip * fx
     const sy = ap.flipY ? -1 : 1
-    this.body.rotation = rot + ap.rotation * DEG
+    this.body.rotation = rot + ap.rotation * DEG + this.liftK * clamp(this.dragVx * 0.0011, -0.35, 0.35)
     this.body.position.set(0, jump)
 
     if (rig && this.gfx) {
-      this.body.scale.set(sx * this.unit, sy * this.unit)
+      this.body.scale.set(sx * this.unit, sy * fy * this.unit)
       let state = this.state
       if (behaviour === 'fly' && !this.perched && state !== 'dragging') state = this.state === 'landing' ? 'landing' : 'flying'
       if (behaviour === 'hang' && (state === 'idle' || state === 'dragging')) state = 'hanging'
-      if (state === 'eating') state = 'interacting'
+      if (state === 'eating' && !rig.eats) state = 'interacting'
       this.gfx.clear()
       // Bats draw differently in flight; keep their body centred on the flight path.
       this.gfx.position.set(0, behaviour === 'fly' && rig.flyCenterY ? -rig.flyCenterY : 0)
@@ -1050,6 +1253,10 @@ export class Entity {
     // Shadow
     this.shadow.clear()
     const onGround = behaviour === 'walk' || (behaviour === 'stationary' && (rig?.origin ?? 'feet') === 'feet') || (behaviour === 'fly' && this.perched)
+    if (this.liftK > 0.05 && ap.shadow) {
+      // Lifted: a soft shadow further below, as if held above the desk.
+      this.shadow.ellipse(this.liftK * 10, this.size.h * 0.12 * this.liftK, this.size.w * 0.32, Math.max(2, this.size.h * 0.04)).fill({ color: 0x000000, alpha: 0.18 * this.liftK })
+    }
     if (ap.shadow && ap.shadowIntensity > 0 && !this.dragging) {
       const k = this.jumpT >= 0 ? 0.6 : 1
       if (onGround) {
@@ -1083,16 +1290,39 @@ export class Entity {
         .stroke({ width: i.hanging.threadWidth, color: i.hanging.threadColor, alpha: 0.85 * ap.opacity })
     }
 
-    // Food: shrinks bite by bite while being eaten.
+    if (this.bubble.visible) {
+      const hang = behaviour === 'hang'
+      const pop = Math.min(1, this.bubbleT * 5) * Math.min(1, Math.max(0, (4 - this.bubbleT) * 3))
+      this.bubble.position.set(this.size.w * (hang ? 0.7 : 0.45), hang ? this.size.h * 0.2 : -this.size.h - 26 + jump)
+      this.bubble.scale.set(0.6 + pop * 0.4)
+      this.bubble.alpha = pop
+    }
+
+    // Food: bite marks, crumbs and moving prey.
     if (this.food) {
-      const bites = this.state === 'eating' ? Math.min(3, Math.floor((this.stateTime / this.stateDur) * 4)) : 0
-      this.foodView.position.set(this.food.x, this.food.y)
-      this.foodView.scale.set(1 - bites * 0.28)
-      this.foodView.alpha = this.food.age > 14 ? Math.max(0, 1 - (this.food.age - 14) / 2) : 1
+      const f = this.food
+      // Prey buzzing in the air sits centred; food on a surface sits on it.
+      const held = this.state === 'eating' && this.inst.behaviour !== 'walk' && this.inst.behaviour !== 'stationary'
+      this.foodView.position.set(f.x, f.y + (f.item.prey === 'buzz' && !held ? f.size * 0.5 : 0))
+      const fade = f.item.prey ? 22 : 14
+      this.foodView.alpha = f.age > fade ? Math.max(0, 1 - (f.age - fade) / 2) : 1
+      // Prey faces the way it is moving; a caught one twitches.
+      const flip = f.item.prey && f.vx < 0 ? -1 : 1
+      this.foodEmoji.scale.set(flip, 1)
+      this.foodEmoji.rotation = held ? 0 : f.item.prey === 'buzz' ? Math.sin(f.age * 30) * 0.15 : f.item.prey === 'wriggle' ? Math.sin(f.age * 6) * 0.2 : 0
+    }
+    if (this.foodView.visible) {
+      this.crumbsGfx.clear()
+      for (const c of this.crumbs) this.crumbsGfx.circle(c.x, c.y, 1.6).fill({ color: c.c, alpha: Math.max(0, 1 - c.t / 1.6) })
     }
 
     // Hearts
     this.fx.clear()
+    this.dust = this.dust.filter((d) => (d.t += dt) < 0.6)
+    for (const d of this.dust) {
+      const k = d.t / 0.6
+      this.fx.circle(d.x + d.vx * d.t, -2 - k * 8, 3 + k * 7).fill({ color: 0xc9c1b4, alpha: 0.35 * (1 - k) })
+    }
     this.hearts = this.hearts.filter((h) => (h.t += dt) < 1.3)
     for (const h of this.hearts) {
       if (h.t < 0) continue
@@ -1159,9 +1389,9 @@ export class Entity {
         tilt = Math.sin(this.animT * 2.5) * 0.06
         break
       case 'eating':
-        // Chewing: quick small dips.
+        // Lean towards the food (the sprite pivots at the feet) and chew with small dips.
         breathe = 1 - Math.abs(Math.sin(this.animT * 9)) * 0.025
-        tilt = Math.sin(this.animT * 4.5) * 0.015
+        tilt = (this.inst.behaviour === 'walk' || this.inst.behaviour === 'stationary' ? 0.14 : 0) + Math.sin(this.animT * 9) * 0.02
         break
       case 'sleeping':
         breathe = 1 + Math.sin(this.animT * 1.4) * 0.02
@@ -1172,7 +1402,14 @@ export class Entity {
     sprite.position.set(0, bob)
     sprite.rotation = tilt
     sprite.scale.set(scale, scale * breathe)
-    this.body.scale.set(sx, sy)
+    this.body.scale.set(sx, sy * this.squashY())
+  }
+
+  /** Vertical squash factor for image characters (rigs apply it in render). */
+  private squashY(): number {
+    if (this.squashT < 0) return 1 + this.hoverK * 0.04 + this.liftK * 0.08
+    const k = Math.max(0, 1 - this.squashT / 0.32)
+    return (1 + this.hoverK * 0.04 + this.liftK * 0.08) * (1 - this.squashAmt * Math.cos(this.squashT * 28) * k)
   }
 
   isDragging(): boolean {

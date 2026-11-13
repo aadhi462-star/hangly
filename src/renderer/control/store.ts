@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { BUILT_IN_CHARACTERS } from '../../shared/defaults'
+import { isHungry } from '../../shared/food'
 import type { Page } from '../../shared/ipc'
 import type { AppState, CharacterDefinition, DisplayInfo, InstanceStatus } from '../../shared/types'
 
@@ -7,6 +8,7 @@ interface Toast {
   id: number
   text: string
   tone: 'info' | 'error'
+  action?: { label: string; run: () => void }
 }
 
 interface UiState {
@@ -24,7 +26,7 @@ interface UiState {
   go(page: Page): void
   edit(instanceId: string | null): void
   openStudio(characterId: string | null): void
-  toast(text: string, tone?: Toast['tone']): void
+  toast(text: string, tone?: Toast['tone'], action?: Toast['action']): void
 }
 
 let toastId = 0
@@ -43,10 +45,11 @@ export const useUi = create<UiState>((set) => ({
   go: (page) => set({ page }),
   edit: (editing) => set({ editing }),
   openStudio: (studioEdit) => set((s) => ({ studioEdit, page: 'studio', studioKey: s.studioKey + 1 })),
-  toast: (text, tone = 'info') => {
+  toast: (text, tone = 'info', action) => {
     const id = ++toastId
-    set((s) => ({ toasts: [...s.toasts, { id, text, tone }] }))
-    setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 3800)
+    set((s) => ({ toasts: [...s.toasts, { id, text, tone, action }] }))
+    // Toasts with an action (e.g. Undo) stay a little longer.
+    setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), action ? 6500 : 3800)
   }
 }))
 
@@ -83,6 +86,7 @@ export function bootstrap(): void {
   api.onShortcutErrors((shortcutErrors) => useUi.setState({ shortcutErrors }))
   api.onStatus((list) => useUi.setState({ status: Object.fromEntries(list.map((s) => [s.instanceId, s])) }))
   api.onNavigate((page) => useUi.setState({ page }))
+  api.onEdit((editing) => useUi.setState({ editing }))
   const initial = new URLSearchParams(location.search).get('page') as Page | null
   if (initial) useUi.setState({ page: initial })
 }
@@ -90,4 +94,22 @@ export function bootstrap(): void {
 /** In-app replacement for window.prompt (which Electron does not support). */
 export function ask(title: string, value = ''): Promise<string | null> {
   return new Promise((resolve) => useUi.setState({ dialog: { title, value, resolve } }))
+}
+
+/** Remove a character from the desktop, with an Undo in the toast. */
+export async function removeWithUndo(instanceId: string): Promise<void> {
+  const { app, toast } = useUi.getState()
+  const inst = app?.instances.find((i) => i.instanceId === instanceId)
+  if (!inst) return
+  const name = findCharacter(app, inst.characterId)?.name ?? 'Character'
+  await api.removeInstance(instanceId)
+  toast(`${name} removed`, 'info', { label: 'Undo', run: () => void run(api.restoreInstance(inst)) })
+}
+
+/** "Fed 12 min ago" / "Hungry" for the Active Characters list. */
+export function fedLabel(i: { lastFed?: number; addedAt: number }): string {
+  if (isHungry(i)) return 'Hungry'
+  if (!i.lastFed) return 'Not hungry yet'
+  const m = Math.round((Date.now() - i.lastFed) / 60000)
+  return m < 1 ? 'Just ate' : m < 60 ? `Fed ${m} min ago` : `Fed ${Math.round(m / 60)} h ago`
 }

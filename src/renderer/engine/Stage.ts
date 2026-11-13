@@ -1,5 +1,5 @@
 import { Application, Container } from 'pixi.js'
-import { foodsFor, type Food } from '../../shared/food'
+import type { Food } from '../../shared/food'
 import type { CharacterDefinition, CharacterInstance, InstanceStatus, Settings } from '../../shared/types'
 import { Entity, type AssetResolver, type Surface, type World } from './Entity'
 
@@ -11,6 +11,8 @@ export interface StageOptions {
   onHoverChange?: (hovering: boolean) => void
   /** Called right after a drag ends, with that character's final status. */
   onDragEnd?: (s: InstanceStatus) => void
+  /** A character finished eating. */
+  onFed?: (instanceId: string) => void
   /** Ask the owner to switch a character's behaviour after a drop. */
   onAdapt?: (instanceId: string, behaviour: CharacterInstance['behaviour'], x: number, y: number) => void
 }
@@ -123,6 +125,7 @@ export class Stage {
       avoidOverlap: s.avoidOverlap,
       entities: [...this.entities.values()],
       surfaces: s.standOnWindows ? this.surfaces : [],
+      onFed: this.opts.onFed ? (e) => this.opts.onFed!(e.id) : null,
       adapt: s.adaptOnDrop && this.opts.onAdapt ? (e, b, x, y) => this.opts.onAdapt!(e.id, b, x, y) : null
     }
   }
@@ -170,6 +173,9 @@ export class Stage {
 
   private setHovered(e: Entity | null): void {
     if (this.hovered === e) return
+    this.hovered?.setHover(false)
+    e?.setHover(true)
+    this.wake()
     const was = !!this.hovered
     this.hovered = e
     this.petDist = 0
@@ -214,15 +220,10 @@ export class Stage {
     this.wake()
   }
 
-  /** Right-click: give the character under the pointer its favourite food. Returns true if one was fed. */
-  feedAt(x: number, y: number): boolean {
+  /** The character under a point (for the right-click menu), if it is interactive. */
+  hitAt(x: number, y: number): string | null {
     this.setCursor({ x, y })
-    const e = this.hovered
-    if (!e || !this.settings) return false
-    const food = foodsFor(e.def)[0]
-    if (food) e.feed(food, this.world_())
-    this.wake()
-    return true
+    return this.hovered?.id ?? null
   }
 
   pointerDown(x: number, y: number): boolean {
