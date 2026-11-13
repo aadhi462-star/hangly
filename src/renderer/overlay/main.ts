@@ -1,6 +1,6 @@
 import 'pixi.js/unsafe-eval'
 import { BUILT_IN_CHARACTERS } from '../../shared/defaults'
-import { assetUrl } from '../../shared/ipc'
+import { characterAssetUrl } from '../../shared/ipc'
 import type { AppState, CharacterDefinition, OverlayInit } from '../../shared/types'
 import { Stage } from '../engine/Stage'
 
@@ -14,7 +14,7 @@ let state: AppState | null = null
 let windowRects: { id: number; x: number; y: number; w: number; h: number }[] = []
 
 const stage = new Stage({
-  resolve: (def, path) => assetUrl(def.id, path, def.updatedAt),
+  resolve: (def, path) => characterAssetUrl(def, path),
   onStatus: (s) => api.overlay.reportStatus(s),
   onDragEnd: (s) => api.overlay.reportStatus([s]),
   onHoverChange: (h) => api.overlay.setInteractive(h),

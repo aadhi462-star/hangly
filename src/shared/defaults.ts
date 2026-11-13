@@ -30,8 +30,8 @@ export const DEFAULT_HANGING: HangingConfig = {
 
 const b = (...xs: Behaviour[]): Behaviour[] => xs
 
-/** Built-in characters. All artwork is original and drawn procedurally at runtime. */
-export const BUILT_IN_CHARACTERS: CharacterDefinition[] = [
+/** The original drawn characters (procedural rigs). Listed only when "Show cartoon characters" is on. */
+const CARTOON_CHARACTERS: CharacterDefinition[] = [
   {
     id: 'cat', name: 'Marmalade the Cat', category: 'walking', builtIn: true, kind: 'procedural', rig: 'cat',
     behaviours: b('walk', 'stationary'), defaultBehaviour: 'walk', baseSize: 70, defaultOpacity: 1, defaultSpeed: 55,
@@ -91,6 +91,44 @@ export const BUILT_IN_CHARACTERS: CharacterDefinition[] = [
   }
 ]
 
+/** A built-in character made from a CC0 photo (resources/characters/<id>/idle.png, credits in CREDITS.md). */
+function photo(
+  id: string,
+  name: string,
+  category: CharacterDefinition['category'],
+  behaviours: Behaviour[],
+  baseSize: number,
+  defaultSpeed: number,
+  description: string,
+  extra: Partial<CharacterDefinition> = {}
+): CharacterDefinition {
+  return {
+    id: `r-${id}`, name, category, builtIn: true, kind: 'image', style: 'realistic',
+    behaviours, defaultBehaviour: behaviours[0], baseSize, defaultOpacity: 1, defaultSpeed, facing: 'right',
+    animations: { idle: { frames: [{ file: 'idle.png', duration: 1000 }], loop: true } },
+    preview: 'idle.png', description, credit: 'Photo: Wikimedia Commons (CC0)', ...extra
+  }
+}
+
+const REALISTIC_CHARACTERS: CharacterDefinition[] = [
+  photo('tiger', 'Bengal Tiger', 'walking', b('walk', 'stationary'), 120, 55, 'Prowls along the bottom of your screen and across your windows.'),
+  photo('horse', 'Horse', 'walking', b('walk', 'stationary'), 150, 70, 'A chestnut horse that wanders your desktop.'),
+  photo('fox', 'Red Fox', 'walking', b('walk', 'stationary'), 95, 75, 'Trots along window tops and the Dock.'),
+  photo('bulldog', 'Bulldog', 'walking', b('stationary', 'walk'), 100, 40, 'Sits and keeps you company.'),
+  photo('squirrel', 'Red Squirrel', 'climbing', b('walk', 'climb', 'stationary'), 64, 85, 'Scurries along and climbs the screen edges.'),
+  photo('barn-owl', 'Barn Owl', 'flying', b('fly', 'stationary'), 90, 120, 'Glides silently across your screen.'),
+  photo('owl', 'Perched Owl', 'flying', b('stationary'), 120, 0, 'Perches on a window and watches.'),
+  photo('spider', 'Garden Spider', 'hanging', b('hang', 'stationary'), 80, 60, 'Hangs from the top of the screen on a silk thread.', {
+    hanging: { ...DEFAULT_HANGING, attachX: 0.5, attachY: 0.14, threadColor: '#d8d8e0', threadWidth: 1.2, length: 160, amplitude: 12 }
+  })
+]
+
+/** Built-in characters: realistic photo characters first, then the original cartoon ones. */
+export const BUILT_IN_CHARACTERS: CharacterDefinition[] = [
+  ...REALISTIC_CHARACTERS,
+  ...CARTOON_CHARACTERS.map((c) => ({ ...c, style: 'cartoon' as const }))
+]
+
 export const DEFAULT_SETTINGS: Settings = {
   globalOpacity: 1,
   pausedAll: false,
@@ -115,6 +153,7 @@ export const DEFAULT_SETTINGS: Settings = {
   avoidOverlap: true,
   standOnWindows: true,
   adaptOnDrop: true,
+  showCartoon: false,
   hiddenBuiltIns: []
 }
 

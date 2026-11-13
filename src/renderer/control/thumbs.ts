@@ -1,6 +1,6 @@
 import { Application, Graphics } from 'pixi.js'
 import { useEffect, useState } from 'react'
-import { assetUrl } from '../../shared/ipc'
+import { characterAssetUrl } from '../../shared/ipc'
 import type { CharacterDefinition, RigId } from '../../shared/types'
 import { RIGS } from '../engine/rigs'
 
@@ -49,7 +49,7 @@ export function useThumb(def: CharacterDefinition | undefined): string | null {
     if (def.kind === 'procedural' && def.rig) void rigThumb(def.rig).then((u) => alive && setUrl(u))
     else {
       const p = def.preview ?? def.animations?.idle?.frames[0]?.file
-      setUrl(p ? assetUrl(def.id, p, def.updatedAt) : null)
+      setUrl(p ? characterAssetUrl(def, p) : null)
     }
     return () => {
       alive = false

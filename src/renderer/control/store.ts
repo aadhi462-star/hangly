@@ -56,7 +56,10 @@ export const api = window.screenly
 export function allCharacters(app: AppState | null, includeHidden = false): CharacterDefinition[] {
   if (!app) return []
   const hidden = new Set(app.settings.hiddenBuiltIns)
-  return [...BUILT_IN_CHARACTERS.filter((c) => includeHidden || !hidden.has(c.id)), ...app.customCharacters]
+  const visible = BUILT_IN_CHARACTERS.filter(
+    (c) => (includeHidden || !hidden.has(c.id)) && (c.style !== 'cartoon' || app.settings.showCartoon)
+  )
+  return [...visible, ...app.customCharacters]
 }
 
 export function findCharacter(app: AppState | null, id: string): CharacterDefinition | undefined {
