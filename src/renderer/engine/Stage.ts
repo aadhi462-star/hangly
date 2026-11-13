@@ -138,19 +138,26 @@ export class Stage {
     for (const e of this.entities.values()) e.update(dt, w)
 
     this.statusClock += dt
-    if (this.statusClock > 1 && this.opts.onStatus) {
-      this.statusClock = 0
-      const st = [...this.entities.values()].map((e) => e.status())
-      const sig = JSON.stringify(st)
-      if (sig !== this.lastStatus) {
-        this.lastStatus = sig
-        this.opts.onStatus(st)
-      }
-    }
+    if (this.statusClock > 1) this.reportStatus()
 
     // Park the render loop when nothing can change on screen (all paused or hidden).
-    const live = [...this.entities.values()].some((e) => !e.inst.hidden && !e.inst.paused) && !w.paused
-    if (!live && !this.press) this.app.ticker.stop()
+    const all = [...this.entities.values()]
+    const live = (all.some((e) => !e.inst.hidden && !e.inst.paused) && !w.paused) || all.some((e) => e.isSettling())
+    if (!live && !this.press) {
+      // Report final positions before parking, so a character that just settled isn't left stale.
+      this.reportStatus()
+      this.app.ticker.stop()
+    }
+  }
+
+  private reportStatus(): void {
+    this.statusClock = 0
+    if (!this.opts.onStatus) return
+    const st = [...this.entities.values()].map((e) => e.status())
+    const sig = JSON.stringify(st)
+    if (sig === this.lastStatus) return
+    this.lastStatus = sig
+    this.opts.onStatus(st)
   }
 
   // ---------- pointer handling (canvas px) ----------

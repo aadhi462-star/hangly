@@ -298,6 +298,10 @@ export class Entity {
       }
       this.advanceGait(dt)
       this.maybeIdleSound(dt, w)
+    } else if (!this.dragging) {
+      // Paused characters don't act on their own, but still obey physics after
+      // you move them: dropped ones fall and land, hanging ones swing to rest.
+      this.settle(dt, w)
     }
     this.render(w, frozen ? 0 : dt)
   }
@@ -332,6 +336,28 @@ export class Entity {
       this.blinkIn = rand(2.5, 6)
     }
     this.blinkT = Math.max(0, this.blinkT - dt)
+  }
+
+  /** Physics only (no behaviour): used while paused. */
+  private settle(dt: number, w: World): void {
+    const b = this.inst.behaviour
+    if ((b === 'walk' || b === 'stationary') && this.state === 'landing') {
+      this.gravity(dt, w)
+      // Land in a still pose rather than resuming the walk animation.
+      if (this.state !== 'landing') this.setState('idle', 1)
+    } else if (b === 'hang' && this.isSwinging()) {
+      this.updatePendulum(dt, w, 0)
+    }
+  }
+
+  private isSwinging(): boolean {
+    return Math.abs(this.omega) > 0.01 || Math.abs(this.theta) > 0.003
+  }
+
+  /** True while physics is still moving it (so a paused stage keeps rendering until it comes to rest). */
+  isSettling(): boolean {
+    const b = this.inst.behaviour
+    return this.state === 'landing' && (b === 'walk' || b === 'stationary') || (b === 'hang' && this.isSwinging())
   }
 
   // ---------- standing on things ----------
@@ -771,7 +797,11 @@ export class Entity {
         this.setState('idle', 1)
         break
       case 'stationary':
-        this.setState('idle', this.idleDur(w))
+        // Standing figures fall onto what's below (hanging-style art stays put).
+        if ((this.rig?.origin ?? 'feet') !== 'hang' && !this.inst.movement.fixedPosition) {
+          this.vy = 0
+          this.setState('landing', 99)
+        } else this.setState('idle', this.idleDur(w))
         break
     }
   }
